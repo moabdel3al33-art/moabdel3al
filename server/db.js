@@ -92,4 +92,4 @@ async function init() {
   return { host, database: dbName() };
 }
 
-module.exports = { init, col, insert, find, one, byId, set, setOne, remove, count, aggregate, distinct, mapById, nextId, isDup, dupKey, rx };
+module.exports = { init, database: () => db, col, insert, find, one, byId, set, setOne, remove, count, aggregate, distinct, mapById, nextId, isDup, dupKey, rx };

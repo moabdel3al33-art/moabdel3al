@@ -97,10 +97,16 @@ Paste the normal Vimeo (or YouTube) link of each lesson. The video player is sho
 - Atlas → Network Access must allow the server's IP. On Railway the IP changes, so allow `0.0.0.0/0`. The password protects the data.
 - The previous MySQL version of the server code is kept in `_mysql-version/`.
 
+## Where files are stored
+Every uploaded file (images, logo, covers, chat photos / voice notes / files, payment screenshots, book PDFs) is saved **inside MongoDB Atlas** (GridFS, collections `uploads.files` and `uploads.chunks`), not on the Railway server. Deploys, restarts and updates never delete them.
+- Links stay the same: `/uploads/<name>`. Book PDFs are private and only downloadable by buyers.
+- Files that older versions left on the disk are copied into the database automatically on start-up.
+- Space: the free Atlas plan (M0) has 512 MB for everything. Watch it in Atlas → *Metrics / Collections*. If it fills up (many videos or big PDFs), upgrade the cluster in Atlas (M10+); nothing in the code changes.
+
 ## Deploying to Railway (later)
 1. Set Variables: `MONGODB_URI`, `MONGODB_DB=abdel3al`, `NODE_ENV=production`, `SITE_URL=https://your-domain`, `APP_SECRET` (long random text), `SMTP_*`, `ADMIN_PASSWORD`.
 2. Choose the Railway region closest to the MongoDB cluster (see above).
-3. Add a **Volume** mounted at `/data` and set `UPLOAD_DIR=/data/uploads`. Without it, uploaded images, voice notes and book files are lost on every deploy.
+3. No Volume is needed: nothing is stored on Railway (see *Where files are stored*).
 4. Start command: `npm start`.
 
 ## Files

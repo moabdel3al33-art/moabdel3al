@@ -1,7 +1,5 @@
 'use strict';
-const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const config = require('./config');
@@ -13,6 +11,7 @@ const shop = require('./shop');
 const auth = require('./auth');
 const { now, slugify, isEmail, hashPassword } = require('./util');
 const payments = require('./payments');
+const storage = require('./storage');
 const countries = require('../public/countries');
 
 const router = express.Router();
@@ -164,18 +163,14 @@ router.delete('/r/:res/:id', requirePerm(), wrap(async (req, res) => {
 // ---------------------------------------------------------------------------
 // Media library & private files
 // ---------------------------------------------------------------------------
-const safeExt = (name) => path.extname(String(name || '')).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
 const fixName = (n) => {
   if (/[^\x00-\xff]/.test(n)) return n;
   const d = Buffer.from(n, 'latin1').toString('utf8');
   return d.includes('�') ? n : d;
 };
-const storage = (dir) => multer.diskStorage({
-  destination: dir,
-  filename: (req, file, cb) => cb(null, crypto.randomBytes(12).toString('hex') + safeExt(file.originalname)),
-});
-const mediaUpload = multer({ storage: storage(config.uploadDir), limits: { fileSize: config.maxUploadMb * 1048576 } });
-const privateUpload = multer({ storage: storage(config.privateDir), limits: { fileSize: 200 * 1048576 } });
+// Files go to MongoDB Atlas (storage.js), never to the server's disk.
+const mediaUpload = multer({ storage: storage.multerStorage(), limits: { fileSize: config.maxUploadMb * 1048576 } });
+const privateUpload = multer({ storage: storage.multerStorage({ isPrivate: true }), limits: { fileSize: 200 * 1048576 } });
 const contentOrSettings = (req, res, next) => (auth.can(req.user, 'content') || auth.can(req.user, 'settings') ? next() : fail(res, 403, req.t('You do not have permission to do this')));
 
 router.get('/media', requirePerm(), contentOrSettings, wrap(async (req, res) => res.json(await find('media', {}, { sort: { id: -1 }, limit: 500 }))));
@@ -189,7 +184,7 @@ router.delete('/media/:id', requirePerm(), contentOrSettings, wrap(async (req, r
   const m = await byId('media', req.params.id);
   if (m) {
     await remove('media', { id: m.id });
-    fs.promises.unlink(path.join(config.uploadDir, path.basename(m.url))).catch(() => {});
+    storage.remove(path.basename(m.url)).catch(() => {});
   }
   res.json({ ok: true });
 }));

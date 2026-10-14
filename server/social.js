@@ -1,8 +1,5 @@
 'use strict';
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
-const config = require('./config');
 const settings = require('./settings');
 const { one, insert, setOne } = require('./db');
 const { now } = require('./util');
@@ -36,7 +33,7 @@ async function downloadImage(url) {
     if (buf.length > 8 * 1024 * 1024) return url;
     const ext = type.includes('png') ? '.png' : type.includes('webp') ? '.webp' : '.jpg';
     const name = crypto.randomBytes(12).toString('hex') + ext;
-    fs.writeFileSync(path.join(config.uploadDir, name), buf);
+    await require('./storage').save(name, buf, { mime: type });
     return `/uploads/${name}`;
   } catch (e) { return url; }
 }

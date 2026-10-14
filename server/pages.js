@@ -1,6 +1,5 @@
 'use strict';
 const path = require('path');
-const fs = require('fs');
 const express = require('express');
 const config = require('./config');
 const { one, find, byId, count, aggregate, mapById } = require('./db');
@@ -11,6 +10,7 @@ const views = require('./views');
 const settings = require('./settings');
 const payments = require('./payments');
 const linkpage = require('./linkpage');
+const storage = require('./storage');
 
 const router = express.Router();
 const ctxOf = (req) => ({ t: req.t, lang: req.lang, user: req.user, path: req.originalUrl, countryGuess: req.countryGuess });
@@ -99,9 +99,8 @@ router.get('/books/:slug/download', wrap(async (req, res) => {
   const b = await one('books', { slug: req.params.slug });
   if (!b || !b.file_path) return notFound(req, res);
   if (!(await shop.hasAccess(req.user, 'book', b.id))) return res.redirect(`/books/${encodeURIComponent(b.slug)}`);
-  const file = path.join(config.privateDir, path.basename(b.file_path));
-  if (!fs.existsSync(file)) return notFound(req, res);
-  res.download(file, b.file_name || `${b.slug}${path.extname(file)}`);
+  const name = path.basename(b.file_path);
+  if (!(await storage.send(req, res, name, { isPrivate: true, downloadName: b.file_name || `${b.slug}${path.extname(name)}` }))) return notFound(req, res);
 }));
 
 // ---- Blog ----

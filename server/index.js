@@ -1,7 +1,6 @@
 'use strict';
 const path = require('path');
 const http = require('http');
-const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { Server } = require('socket.io');
@@ -16,6 +15,7 @@ const pages = require('./pages');
 const social = require('./social');
 const seed = require('./seed');
 const comments = require('./comments');
+const storage = require('./storage');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -27,16 +27,10 @@ const io = new Server(server, { maxHttpBufferSize: 1e6 });
 
 // ---- Static files ----
 app.use(express.static(path.join(config.root, 'public'), { maxAge: config.prod ? '7d' : 0, index: false }));
-const INLINE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.mp4', '.webm', '.ogg', '.oga', '.mp3', '.m4a', '.wav', '.aac', '.mov', '.pdf']);
-app.use('/uploads', (req, res, next) => (req.path.startsWith('/private') ? res.status(404).end() : next()), express.static(config.uploadDir, {
-  maxAge: '30d',
-  setHeaders(res, file) {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    const ext = path.extname(file).toLowerCase();
-    if (ext === '.svg') res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
-    if (!INLINE_EXT.has(ext)) res.setHeader('Content-Disposition', 'attachment');
-  },
-}));
+// Uploaded files live in MongoDB Atlas (see storage.js), so they survive every deploy.
+app.get('/uploads/:name', async (req, res, next) => {
+  try { if (!(await storage.send(req, res, req.params.name))) res.status(404).end(); } catch (e) { next(e); }
+});
 
 app.use(express.json({ limit: '2mb' }));
 app.use(auth.attach);
@@ -48,17 +42,13 @@ app.use('/api', (req, res, next) => {
 });
 
 // ---- Chat uploads (images, voice notes, files) ----
-const safeExt = (name) => path.extname(String(name || '')).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
 const fixName = (n) => {
   if (/[^\x00-\xff]/.test(n)) return n;
   const d = Buffer.from(n, 'latin1').toString('utf8');
   return d.includes('�') ? n : d;
 };
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: config.uploadDir,
-    filename: (req, file, cb) => cb(null, crypto.randomBytes(12).toString('hex') + safeExt(file.originalname)),
-  }),
+  storage: storage.multerStorage(),
   limits: { fileSize: config.maxUploadMb * 1048576 },
 });
 app.post('/api/upload', auth.requireUser, upload.single('file'), (req, res) => {
@@ -98,6 +88,8 @@ chat.setup(io);
     console.error('  -> Check MONGODB_URI in the .env file, and that your IP is allowed in MongoDB Atlas (Network Access).\n');
     process.exit(1);
   }
+  await storage.init();
+  await storage.importLocalFiles();
   await settings.load();
   await settings.migrate();
   await auth.seedAdmin();
