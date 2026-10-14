@@ -59,6 +59,16 @@ In the Inbox, the label button in a chat's header lets any team member tick labe
 ## Books: view-only reader
 Buyers read books on the site in a reader (zoom, full screen, page counter). There is no download or print button, and each page carries a faint watermark with the reader's name and phone. Upload the PDF, or (to save database space) paste a **PDF link** instead: Google Drive (shared as "Anyone with the link"), Dropbox or any direct PDF link. The server fetches it, so buyers never see the link.
 
+## Book PDFs in Google Drive
+Admin → **Google Drive** → *Connect Google Drive*. From then on every book PDF uploaded in the admin goes into a private folder **"Website books (do not delete)"** in your own Drive (your storage, not the database). Buyers read it in the on-site reader; the file is never shared publicly. Books uploaded before keep working.
+
+One-time setup (the admin page shows the same steps and the exact redirect address to copy):
+1. console.cloud.google.com → create a project → *APIs & Services → Library* → enable **Google Drive API**.
+2. *OAuth consent screen* → External → app name + your email → **Publish app** (otherwise the connection expires after 7 days).
+3. *Credentials → Create credentials → OAuth client ID → Web application* → add the redirect URI `https://<your-site>/admin/google/callback`.
+4. Railway → Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. Then press *Connect Google Drive* and allow access.
+The site only gets access to the files it creates itself (`drive.file`), nothing else in your Drive.
+
 ## Followers counter
 Admin → Social media → *Followers counter*: type each platform's followers. One total is shown in a thin bar at the top of every page. With *Count automatically* on, the server also tries to read the real numbers every 12 hours (YouTube and TikTok usually work; Instagram and Facebook often block it, so the typed number is used for them).
 

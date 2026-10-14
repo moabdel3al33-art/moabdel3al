@@ -9,9 +9,11 @@ const social = require('./social');
 const chat = require('./chat');
 const shop = require('./shop');
 const auth = require('./auth');
-const { now, slugify, isEmail, hashPassword } = require('./util');
+const { now, slugify, isEmail, hashPassword, origin } = require('./util');
 const payments = require('./payments');
 const storage = require('./storage');
+const gdrive = require('./gdrive');
+const fs = require('fs');
 const countries = require('../public/countries');
 
 const router = express.Router();
@@ -188,10 +190,27 @@ router.delete('/media/:id', requirePerm(), contentOrSettings, wrap(async (req, r
   }
   res.json({ ok: true });
 }));
-router.post('/private-upload', requirePerm('content'), privateUpload.single('file'), (req, res) => {
-  if (!req.file) return fail(res, 400, req.t('No file received'));
-  res.json({ file_path: req.file.filename, file_name: fixName(req.file.originalname).slice(0, 250) });
-});
+// Book files: into the owner's Google Drive when it is connected (Admin > Google Drive), otherwise into the database.
+const tempUpload = multer({ dest: require('os').tmpdir(), limits: { fileSize: 300 * 1048576 } });
+router.post('/private-upload', requirePerm('content'), wrap(async (req, res, next) => {
+  if (!(await gdrive.connected())) return privateUpload.single('file')(req, res, (err) => (err ? next(err) : done()));
+  tempUpload.single('file')(req, res, async (err) => {
+    if (err) return next(err);
+    if (!req.file) return fail(res, 400, req.t('No file received'));
+    const name = fixName(req.file.originalname).slice(0, 250);
+    try {
+      const id = await gdrive.upload(req.file.path, name, req.file.mimetype);
+      res.json({ file_path: `gdrive:${id}`, file_name: name, drive: true });
+    } catch (e) { console.error('drive upload', e.message); fail(res, 502, req.t('Could not upload to Google Drive. Please try again.')); }
+    finally { fs.promises.unlink(req.file.path).catch(() => {}); }
+  });
+  function done() {
+    if (!req.file) return fail(res, 400, req.t('No file received'));
+    res.json({ file_path: req.file.filename, file_name: fixName(req.file.originalname).slice(0, 250) });
+  }
+}));
+router.get('/gdrive', requirePerm('settings'), wrap(async (req, res) => res.json({ ...(await gdrive.status()), redirect: `${origin(req)}/admin/google/callback` })));
+router.post('/gdrive/disconnect', requirePerm('settings'), wrap(async (req, res) => { await gdrive.disconnect(); res.json({ ok: true }); }));
 
 // ---------------------------------------------------------------------------
 // Settings (site texts, images, social links, colours)

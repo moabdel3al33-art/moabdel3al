@@ -111,6 +111,13 @@ function socialUrl(platform, value) {
   return /^[\w.-]+$/.test(name) ? SOCIAL_BASE[platform] + name : s;
 }
 const SOCIAL_KEYS = ['facebook', 'instagram', 'tiktok', 'youtube'];
+// The link shown to visitors. YouTube "@name" links often open the app's home page on phones instead of the
+// channel, so the channel id link (youtube.com/channel/UC...) is used once it is known.
+function socialLink(platform) {
+  const v = cache[`social_${platform}`] || '';
+  if (platform === 'youtube' && v && cache.youtube_channel_id && /youtube\.com\/@/i.test(v)) return `https://www.youtube.com/channel/${cache.youtube_channel_id}`;
+  return v;
+}
 
 let cache = { ...DEFAULTS };
 
@@ -166,4 +173,4 @@ async function migrate() {
   await save(values);
 }
 
-module.exports = { socialUrl, PALETTES, DEFAULTS, load, all, get, save, migrate, theme, themeCss, isLight, luminance, HEX };
+module.exports = { socialUrl, socialLink, PALETTES, DEFAULTS, load, all, get, save, migrate, theme, themeCss, isLight, luminance, HEX };

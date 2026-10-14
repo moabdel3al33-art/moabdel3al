@@ -31,7 +31,7 @@
     books: {
       res: 'books', one: 'Book', add: 'Add book', site: (r) => `/books/${encodeURIComponent(r.slug)}`,
       cols: [['', (r) => thumb(r.cover, 1)], ['Title', (r) => `<b>${esc(r.title)}</b>`], ['Price', (r) => esc(money(r.price))],
-        ['File', (r) => (r.file_path ? `<span class="pill ok">PDF</span>` : r.external_url ? `<span class="pill ok">${esc(T('PDF link'))}</span>` : `<span class="pill bad">${esc(T('Missing'))}</span>`)],
+        ['File', (r) => (r.file_path ? `<span class="pill ok">${r.file_path.startsWith('gdrive:') ? 'Google Drive' : 'PDF'}</span>` : r.external_url ? `<span class="pill ok">${esc(T('PDF link'))}</span>` : `<span class="pill bad">${esc(T('Missing'))}</span>`)],
         ['Buyers', (r) => r.owners], ['Status', statusPill]],
       fields: [
         { k: 'title', l: 'Title', req: 1, full: 1 }, { k: 'subtitle', l: 'Short description (one line)', full: 1 },
@@ -443,6 +443,40 @@
         ADM.views.payments(el);
       } catch (e) { err.textContent = e.message; }
     };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Google Drive: book PDFs are uploaded into the owner's Drive
+  // ---------------------------------------------------------------------------
+  ADM.views.gdrive = async (el, arg) => {
+    const g = await api('/api/admin/gdrive');
+    if (arg === 'ok') toast(T('Google Drive connected'));
+    if (arg === 'error') toast(T('Google Drive could not be connected. Please try again.'));
+    const steps = [
+      'Open console.cloud.google.com with your Google account and create a project (any name).',
+      'APIs & Services > Library: search "Google Drive API" and press Enable.',
+      'APIs & Services > OAuth consent screen: choose External, fill the app name and your email, then press "Publish app" so the connection does not expire.',
+      'APIs & Services > Credentials > Create credentials > OAuth client ID > Web application.',
+      'Under "Authorized redirect URIs" add exactly the address below, then Create.',
+      'Copy the Client ID and Client secret into Railway > Variables as GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. The server restarts by itself.',
+      'Come back to this page and press "Connect Google Drive".',
+    ];
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h3>${ic('drive')} ${esc(T('Google Drive for book PDFs'))}</h3>
+        <span class="pill ${g.connected ? 'ok' : 'warn'}">${esc(g.connected ? T('Connected') : g.configured ? T('Not connected') : T('Not set up'))}</span></div><div class="panel-body">
+        <p style="margin-top:0">${esc(T('When Google Drive is connected, every book PDF you upload goes into a private folder in your own Google Drive instead of the website database. Buyers read it in the on-site reader; the file is never shared publicly.'))}</p>
+        ${g.connected ? `<div class="drive-box">${ic('drive')}<div><b>${esc(g.email || '')}</b><div class="muted small">${esc(T('New book PDFs are saved in the folder:'))} <a href="${esc(g.folder)}" target="_blank">${esc(T('Website books (do not delete)'))}</a></div></div></div>
+            <div class="row" style="margin-top:12px"><a class="btn ghost" href="/admin/google/connect">${ic('refresh', 'sm')} ${esc(T('Reconnect'))}</a><button class="btn ghost" id="gdOff" style="color:#ff6b81">${esc(T('Disconnect'))}</button></div>
+            <p class="muted small">${esc(T('Books uploaded before stay where they are. Do not delete or move the files in that folder, or the books will stop opening.'))}</p>`
+          : g.configured ? `<a class="btn" href="/admin/google/connect">${ic('drive', 'sm')} ${esc(T('Connect Google Drive'))}</a>` : ''}
+      </div></div>
+      ${!g.connected ? `<div class="panel"><div class="panel-head"><h3>${esc(T('One-time setup'))}</h3></div><div class="panel-body">
+        <ol class="howto-list">${steps.map((x) => `<li>${esc(T(x))}</li>`).join('')}</ol>
+        <div class="slug-row" dir="ltr" style="margin-top:12px"><input readonly value="${esc(g.redirect)}"><button class="btn small ghost" id="gdCopy">${ic('copy')} ${esc(T('Copy'))}</button></div>
+      </div></div>` : ''}`;
+    const off = el.querySelector('#gdOff');
+    if (off) off.onclick = async () => { if (await confirmDialog(T('Disconnect Google Drive?'), T('New PDFs will be saved in the website database again. Books already in Drive will not open until you connect the same account again.'), T('Disconnect'), true)) { await post('/api/admin/gdrive/disconnect'); ADM.views.gdrive(el); } };
+    const cp = el.querySelector('#gdCopy');
+    if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(g.redirect); toast(T('Copied')); } catch (e) { prompt('', g.redirect); } };
   };
 
   // ---------------------------------------------------------------------------

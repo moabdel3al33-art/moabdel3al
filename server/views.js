@@ -100,7 +100,7 @@ function priceHtml(ctx, item) {
 }
 function socialLinks(cls = 'soc') {
   return SOCIAL.filter((s) => settings.get(`social_${s.key}`)).map((s) =>
-    `<a class="${cls} ${s.key}" href="${esc(settings.get(`social_${s.key}`))}" target="_blank" rel="noopener" aria-label="${s.name}">${icon(s.key)}</a>`).join('');
+    `<a class="${cls} ${s.key}" href="${esc(settings.socialLink(s.key))}" target="_blank" rel="noopener" aria-label="${s.name}">${icon(s.key)}</a>`).join('');
 }
 function sectionHead(title, sub, link, linkText) {
   return `<div class="sec-head"><div><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>${link ? `<a class="more" href="${link}">${esc(linkText)} ${icon('arrow', 'flip')}</a>` : ''}</div>`;
@@ -152,7 +152,7 @@ function followersTotal() {
 }
 const compactNum = (ctx, n) => new Intl.NumberFormat(ctx.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 const fanIcons = () => ['youtube', 'tiktok', 'instagram', 'facebook'].filter((k) => settings.get(`social_${k}`))
-  .map((k) => `<a class="fan-ic ${k}" href="${esc(settings.get(`social_${k}`))}" target="_blank" rel="noopener" aria-label="${k}">${icon(k)}</a>`).join('');
+  .map((k) => `<a class="fan-ic ${k}" href="${esc(settings.socialLink(k))}" target="_blank" rel="noopener" aria-label="${k}">${icon(k)}</a>`).join('');
 function followersBar(ctx) {
   const total = followersTotal();
   if (!total) return '';
@@ -380,7 +380,7 @@ function home(ctx, d) {
 
 <section class="wrap sec">
   ${sectionHead(t('Follow Mohamed'), t('Daily content on every platform'))}
-  <div class="platforms">${SOCIAL.map((s) => `<a class="platform ${s.key}" href="${esc(settings.get(`social_${s.key}`) || '#')}" target="_blank" rel="noopener">
+  <div class="platforms">${SOCIAL.map((s) => `<a class="platform ${s.key}" href="${esc(settings.socialLink(s.key) || '#')}" target="_blank" rel="noopener">
     <span class="platform-ic">${icon(s.key)}</span><strong>${s.name}</strong><span class="platform-act">${esc(t(s.action))}</span></a>`).join('')}</div>
   ${d.social.length ? `<div class="sposts rail">${d.social.map((p) => socialPostCard(ctx, p)).join('')}</div>` : ''}
 </section>
@@ -1026,7 +1026,7 @@ ${cover ? `<div class="lp-backdrop" style="background-image:url('${esc(cover.src
   <section class="lp-body">
     <h1>${esc(name)}</h1>
     ${d.bio ? `<p class="lp-bio">${esc(d.bio)}</p>` : ''}
-    ${d.socials.length ? `<nav class="lp-social">${d.socials.map((x) => `<a href="${esc(x.url)}"${ext(x.url)} aria-label="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}" title="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}">${icon(LP_ICON[x.type] || x.type)}</a>`).join('')}</nav>` : ''}
+    ${d.socials.length ? `<nav class="lp-social">${d.socials.map((x) => `<a href="${esc(x.type === 'youtube' && x.url === settings.get('social_youtube') ? settings.socialLink('youtube') : x.url)}"${ext(x.url)} aria-label="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}" title="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}">${icon(LP_ICON[x.type] || x.type)}</a>`).join('')}</nav>` : ''}
     ${d.heading ? `<h2 class="lp-heading">${esc(d.heading)}</h2>` : ''}
     <div class="lp-links">${links.map((l, i) => `<div class="lp-link ${l.highlight ? 'hl' : ''}" style="--i:${i}">
       <a class="lp-a" href="${esc(l.url)}"${ext(l.url)}>

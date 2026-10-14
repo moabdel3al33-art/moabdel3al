@@ -12,6 +12,7 @@ const payments = require('./payments');
 const consult = require('./consult');
 const linkpage = require('./linkpage');
 const storage = require('./storage');
+const gdrive = require('./gdrive');
 const { origin } = require('./util');
 
 const router = express.Router();
@@ -114,6 +115,13 @@ router.get('/books/:slug/pdf', wrap(async (req, res) => {
   if (req.headers['x-requested-with'] !== 'reader') return res.redirect(`/books/${encodeURIComponent(req.params.slug)}/read`); // opened directly
   const b = await readableBook(req, res); if (!b) return;
   res.set('Cache-Control', 'private, no-store').set('Content-Disposition', 'inline');
+  if (b.file_path && b.file_path.startsWith('gdrive:')) {
+    try { await gdrive.send(req, res, b.file_path.slice(7)); } catch (e) {
+      console.error('drive read', b.id, e.message);
+      res.status(502).json({ error: req.t('The book file could not be opened. Please tell us in the chat.') });
+    }
+    return;
+  }
   if (b.file_path) {
     if (!(await storage.send(req, res, path.basename(b.file_path), { isPrivate: true }))) notFound(req, res);
     return;
@@ -280,6 +288,26 @@ router.get('/icon.svg', (req, res) => {
   res.type('image/svg+xml').set('Cache-Control', 'public, max-age=3600')
     .send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${th.bg}"/><circle cx="256" cy="256" r="190" fill="${th.primary}"/><g transform="translate(96 96) scale(13.3)" fill="${th.bg}"><path d="${path}"/></g></svg>`);
 });
+
+// ---- Connect Google Drive (book PDFs are stored in the owner's Drive) ----
+const crypto = require('crypto');
+router.get('/admin/google/connect', (req, res) => {
+  if (!auth.can(req.user, 'settings')) return res.redirect('/login?next=/admin');
+  if (!gdrive.configured()) return res.redirect('/admin#gdrive');
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('gstate', state, { httpOnly: true, sameSite: 'lax', maxAge: 600e3, path: '/admin/google' });
+  res.redirect(gdrive.authUrl(`${origin(req)}/admin/google/callback`, state));
+});
+router.get('/admin/google/callback', wrap(async (req, res) => {
+  if (!auth.can(req.user, 'settings')) return res.redirect('/login?next=/admin');
+  const ok = req.query.code && req.query.state && req.query.state === req.cookies.gstate;
+  res.clearCookie('gstate', { path: '/admin/google' });
+  if (!ok) return res.redirect('/admin#gdrive/error');
+  try { await gdrive.finishConnect(String(req.query.code), `${origin(req)}/admin/google/callback`); res.redirect('/admin#gdrive/ok'); } catch (e) {
+    console.error('drive connect', e.message);
+    res.redirect('/admin#gdrive/error');
+  }
+}));
 
 // ---- Admin panel (single page app) ----
 router.get('/admin', (req, res) => {

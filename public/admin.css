@@ -372,3 +372,8 @@ body.admin-body .btn:not(.ghost):not(.green):not(.danger) {
 .late { color: #ff6b81; font-weight: 700; }
 .fol-total { margin-inline-start: auto; font-size: 15px; }
 .fol-total b { color: var(--c-primary); font-size: 18px; }
+
+/* ---------- Google Drive ---------- */
+.drive-box { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 14px; background: var(--surface-2); }
+.drive-box > .i { width: 34px; height: 34px; color: #1fa463; }
+.slug-row input[readonly] { color: var(--c-text); }
