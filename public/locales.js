@@ -989,6 +989,7 @@
     "Prices of the 3 options": "أسعار الاختيارات الثلاثة",
     "Clients choose one option, leave their WhatsApp number and pay. There is no calendar. Leave a price empty to hide that option.": "يختار العميل أحد الاختيارات، ويترك رقم واتساب ويدفع. لا يوجد تقويم. اترك السعر فارغاً لإخفاء الاختيار.",
     "Open session (no time limit)": "الجلسة المفتوحة (بلا حد زمني)",
+    "Join": "انضم",
   };
 
   function make(lang) {

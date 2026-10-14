@@ -152,17 +152,18 @@
   }
 
   // ---- Followers counter: counts up from 0 ----
-  const fn = document.querySelector('.fbar-n');
-  if (fn && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const total = Number(fn.dataset.count);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const fmt = new Intl.NumberFormat(document.documentElement.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 });
-    const t0 = performance.now();
-    const step = (now) => {
-      const k = Math.min(1, (now - t0) / 1600);
-      fn.textContent = `${fmt.format(Math.round(total * (1 - (1 - k) ** 3)))}+`;
-      if (k < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    document.querySelectorAll('.count-up').forEach((fn) => {
+      const total = Number(fn.dataset.count);
+      const t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / 1800);
+        fn.textContent = `${fmt.format(Math.round(total * (1 - (1 - k) ** 3)))}+`;
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
   }
 
   // ---- Books pop up when the books section scrolls into view ----

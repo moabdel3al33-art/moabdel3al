@@ -83,18 +83,49 @@ const DEFAULTS = {
   followers_fetched: '',
 };
 
+// ---- Social media links: a username, "@username" or a full link all become the right profile link ----
+// (TikTok and YouTube profiles need "@" before the name: tiktok.com/@name, youtube.com/@name)
+const SOCIAL_BASE = {
+  facebook: 'https://www.facebook.com/', instagram: 'https://www.instagram.com/', tiktok: 'https://www.tiktok.com/@', youtube: 'https://www.youtube.com/@',
+  x: 'https://x.com/', linkedin: 'https://www.linkedin.com/in/', telegram: 'https://t.me/',
+};
+const SOCIAL_HOST = {
+  facebook: /(^|\.)(facebook|fb)\.com$/i, instagram: /(^|\.)instagram\.com$/i, tiktok: /(^|\.)tiktok\.com$/i, youtube: /(^|\.)(youtube\.com|youtu\.be)$/i,
+  x: /(^|\.)(x|twitter)\.com$/i, linkedin: /(^|\.)linkedin\.com$/i, telegram: /(^|\.)(t|telegram)\.me$/i,
+};
+const YT_PATHS = ['channel', 'c', 'user', 'watch', 'shorts', 'playlist', 'results', 'live', 'embed'];
+function socialUrl(platform, value) {
+  let s = String(value || '').trim();
+  if (!s || !SOCIAL_BASE[platform]) return s;
+  const withProto = /^https?:\/\//i.test(s) ? s : `https://${s.replace(/^\/+/, '')}`;
+  let u = null;
+  try { u = new URL(withProto); } catch (e) { u = null; }
+  if (u && SOCIAL_HOST[platform].test(u.hostname)) {
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (platform === 'tiktok' && parts.length === 1 && !parts[0].startsWith('@')) u.pathname = `/@${parts[0]}`;
+    if (platform === 'youtube' && /youtube/i.test(u.hostname) && parts.length === 1 && !parts[0].startsWith('@') && !YT_PATHS.includes(parts[0])) u.pathname = `/@${parts[0]}`;
+    return u.toString().replace(/\/$/, '');
+  }
+  if (/^https?:\/\//i.test(s)) return s; // a link to another website: keep it
+  const name = s.replace(/^@/, '').replace(/\/+$/, '');
+  return /^[\w.-]+$/.test(name) ? SOCIAL_BASE[platform] + name : s;
+}
+const SOCIAL_KEYS = ['facebook', 'instagram', 'tiktok', 'youtube'];
+
 let cache = { ...DEFAULTS };
 
 async function load() {
   const rows = await find('settings');
   cache = { ...DEFAULTS };
   for (const r of rows) if (r.k in DEFAULTS) cache[r.k] = r.v == null ? '' : r.v;
+  for (const p of SOCIAL_KEYS) cache[`social_${p}`] = socialUrl(p, cache[`social_${p}`]);
   return cache;
 }
 const all = () => cache;
 const get = (k) => cache[k];
 async function save(values) {
-  const entries = Object.entries(values).filter(([k]) => k in DEFAULTS);
+  const entries = Object.entries(values).filter(([k]) => k in DEFAULTS)
+    .map(([k, v]) => (/^social_/.test(k) && SOCIAL_KEYS.includes(k.slice(7)) ? [k, socialUrl(k.slice(7), v)] : [k, v]));
   for (const [k, v] of entries) {
     await col('settings').updateOne({ k }, { $set: { k, v: v == null ? '' : String(v) } }, { upsert: true });
   }
@@ -135,4 +166,4 @@ async function migrate() {
   await save(values);
 }
 
-module.exports = { PALETTES, DEFAULTS, load, all, get, save, migrate, theme, themeCss, isLight, luminance, HEX };
+module.exports = { socialUrl, PALETTES, DEFAULTS, load, all, get, save, migrate, theme, themeCss, isLight, luminance, HEX };

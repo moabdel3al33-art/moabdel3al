@@ -863,20 +863,35 @@ input:focus, select:focus, textarea:focus { border-color: var(--gold); box-shado
 @media (max-width: 520px) { .checkout.pay { padding: 20px 16px; } .pay-total { align-items: flex-start; } .shot-keys { grid-template-columns: 1fr; } }
 
 /* =====================================================================
- *  Followers counter (thin bar at the very top)
+ *  Followers counter: gold bar at the very top + big counter on the home page
  * ===================================================================== */
-.fbar { position: relative; overflow: hidden; background: linear-gradient(90deg, color-mix(in srgb, var(--c-primary) 16%, var(--c-bg)), var(--c-bg) 50%, color-mix(in srgb, var(--c-primary) 16%, var(--c-bg)));
-  border-bottom: 1px solid var(--hair, var(--line)); font-size: 14px; }
-.fbar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--c-primary) 22%, transparent), transparent); animation: fbarShine 6s ease-in-out infinite; pointer-events: none; }
-@keyframes fbarShine { 0%, 60% { left: -40%; } 100% { left: 120%; } }
-.fbar-in { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 38px; padding-top: env(safe-area-inset-top); }
-.fbar-icons { display: inline-flex; }
-.fbar-icons .ic { width: 22px; height: 22px; padding: 4px; border-radius: 50%; background: var(--c-surface); color: var(--c-primary); border: 1px solid var(--hair, var(--line)); margin-inline-start: -6px; }
-.fbar-icons .ic:first-child { margin-inline-start: 0; }
-.fbar-n { font-size: 17px; font-weight: 800; color: var(--c-primary); font-variant-numeric: tabular-nums; letter-spacing: .3px; }
-.fbar-in > span:last-child { color: var(--muted); font-weight: 600; }
-@media (max-width: 860px) { .fbar-in { min-height: 34px; font-size: 13px; gap: 8px; } .fbar-n { font-size: 15px; } .fbar + .topbar { padding-top: 0 !important; } }
-@media (max-width: 380px) { .fbar-icons { display: none; } }
+.fbar { position: relative; overflow: hidden; background: var(--lux, var(--c-primary)); color: var(--c-on-primary); box-shadow: 0 6px 24px -10px var(--glow); }
+.fbar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; left: -45%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); animation: fbarShine 4.5s ease-in-out infinite; pointer-events: none; }
+@keyframes fbarShine { 0%, 55% { left: -45%; } 100% { left: 125%; } }
+.fbar-in { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 46px; padding-top: env(safe-area-inset-top); font-weight: 700; }
+.fbar-live { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: rgba(0, 0, 0, .16); font-size: 13px; font-weight: 800; }
+.fbar-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: livePulse 1.6s infinite; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .7); } 70% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+.fbar-n { font-size: 24px; font-weight: 900; letter-spacing: .4px; font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 1px 0 rgba(255, 255, 255, .25); }
+.fbar-txt { font-size: 15px; }
+.fbar-icons { display: inline-flex; gap: 4px; }
+.fan-ic { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; transition: transform .2s; }
+.fan-ic:hover { transform: translateY(-2px) scale(1.08); }
+.fbar .fan-ic { background: rgba(0, 0, 0, .16); color: inherit; }
+.fan-ic .ic { width: 16px; height: 16px; }
+@media (max-width: 860px) { .fbar-in { min-height: 42px; gap: 8px; } .fbar-n { font-size: 20px; } .fbar-txt { font-size: 13px; } .fbar-icons { display: none; } .fbar + .topbar { padding-top: 0 !important; } }
+@media (max-width: 380px) { .fbar-live { display: none; } }
+
+.hero-fans { display: inline-flex; align-items: center; gap: 18px; margin-top: 22px; padding: 14px 20px; border-radius: 20px; flex-wrap: wrap;
+  background: color-mix(in srgb, var(--c-surface) 78%, transparent); border: 1px solid color-mix(in srgb, var(--c-primary) 45%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 20px 50px -28px var(--glow); }
+.hf-num { display: flex; flex-direction: column; line-height: 1.15; }
+.hf-num b { font-size: clamp(34px, 5vw, 48px); font-weight: 900; background: var(--lux, var(--c-primary)); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.hf-num span { color: var(--muted); font-weight: 700; font-size: 14.5px; }
+.hf-icons { display: flex; gap: 6px; }
+.hero-fans .fan-ic { width: 40px; height: 40px; background: var(--surface-2); color: var(--c-primary); border: 1px solid var(--line); }
+.hero-fans .fan-ic .ic { width: 20px; height: 20px; }
+@media (max-width: 760px) { .hero-fans { width: 100%; justify-content: center; text-align: center; } .hf-num { align-items: center; } }
 
 /* =====================================================================
  *  Books pop up on the home page

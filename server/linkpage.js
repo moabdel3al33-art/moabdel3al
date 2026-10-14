@@ -24,7 +24,7 @@ function defaults() {
 
 // Links may point to a page of this website (/courses), a full web address, an email or a phone number.
 function cleanUrl(v, type) {
-  let u = String(v || '').trim().slice(0, 600);
+  let u = settings.socialUrl(type, String(v || '').trim().slice(0, 600)); // usernames -> profile links
   if (!u) return '';
   if (type === 'email' && !/^mailto:/i.test(u)) u = `mailto:${u}`;
   if (type === 'phone' && !/^tel:/i.test(u)) u = `tel:${u.replace(/[^\d+]/g, '')}`;
@@ -66,6 +66,7 @@ async function get() {
   let d = null;
   try { d = JSON.parse(settings.get('linkpage') || 'null'); } catch (e) { d = null; }
   if (!d || !d.slug) { d = defaults(); await settings.save({ linkpage: JSON.stringify(d) }); }
+  d.socials = (d.socials || []).map((x) => ({ ...x, url: settings.socialUrl(x.type, x.url) })); // fixes links saved before
   return d;
 }
 async function save(input) {

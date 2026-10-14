@@ -217,7 +217,7 @@ router.put('/settings', requirePerm(), contentOrSettings, wrap(async (req, res) 
     } else values[k] = String(v == null ? '' : v).slice(0, 20000);
   }
   if ('social_youtube' in values && values.social_youtube !== settings.get('social_youtube')) {
-    values.youtube_channel_id = await social.resolveYoutubeChannel(values.social_youtube);
+    values.youtube_channel_id = await social.resolveYoutubeChannel(settings.socialUrl('youtube', values.social_youtube));
   }
   await settings.save(values);
   res.json({ ok: true, values: settings.all() });

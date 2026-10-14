@@ -144,15 +144,28 @@ function tabBar(ctx, active) {
   </div>`;
 }
 
-// Thin bar at the very top: total followers of all platforms (counts up when the page opens).
+// Followers of all platforms together (counts up when the page opens). Shown in a bar at the very top of every
+// page and as a big counter in the home page's top section.
+function followersTotal() {
+  if (settings.get('followers_show') !== '1') return 0;
+  return require('./social').followers().total;
+}
+const compactNum = (ctx, n) => new Intl.NumberFormat(ctx.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+const fanIcons = () => ['youtube', 'tiktok', 'instagram', 'facebook'].filter((k) => settings.get(`social_${k}`))
+  .map((k) => `<a class="fan-ic ${k}" href="${esc(settings.get(`social_${k}`))}" target="_blank" rel="noopener" aria-label="${k}">${icon(k)}</a>`).join('');
 function followersBar(ctx) {
-  if (settings.get('followers_show') !== '1') return '';
-  const total = require('./social').followers().total;
+  const total = followersTotal();
   if (!total) return '';
-  const compact = new Intl.NumberFormat(ctx.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(total);
   return `<div class="fbar"><div class="wrap fbar-in">
-    <span class="fbar-icons" aria-hidden="true">${['youtube', 'tiktok', 'instagram', 'facebook'].map((k) => icon(k)).join('')}</span>
-    <b class="fbar-n" data-count="${total}" dir="ltr">${esc(compact)}+</b><span>${esc(ctx.t('followers across all platforms'))}</span></div></div>`;
+    <span class="fbar-live"><i></i>${esc(ctx.t('Join'))}</span>
+    <b class="fbar-n count-up" data-count="${total}" dir="ltr">${esc(compactNum(ctx, total))}+</b><span class="fbar-txt">${esc(ctx.t('followers across all platforms'))}</span>
+    <span class="fbar-icons">${fanIcons()}</span></div></div>`;
+}
+function followersHero(ctx) {
+  const total = followersTotal();
+  if (!total) return '';
+  return `<div class="hero-fans"><div class="hf-num"><b class="count-up" data-count="${total}" dir="ltr">${esc(compactNum(ctx, total))}+</b>
+    <span>${esc(ctx.t('followers across all platforms'))}</span></div><div class="hf-icons">${fanIcons()}</div></div>`;
 }
 
 function layout(ctx, { title, desc, image, body, active = '', bodyClass = '', chrome = true, head = '', scripts = '', bottom }) {
@@ -352,6 +365,7 @@ function home(ctx, d) {
         <a class="btn primary lg" href="/chat">${icon('chat')} ${esc(t('Chat with us now'))}</a>
         <a class="btn ghost lg" href="/courses">${esc(t('Explore the courses'))}</a>
       </div>
+      ${followersHero(ctx)}
       <div class="hero-social">${socialLinks('soc')}</div>
     </div>
     <div class="hero-photo">${heroImg ? pimg(heroImg, S(ctx, 'site_name'), 'fetchpriority="high"') : `<div class="ph big">${icon('brain')}</div>`}</div>
