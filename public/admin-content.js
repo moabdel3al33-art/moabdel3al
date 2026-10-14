@@ -31,15 +31,15 @@
     books: {
       res: 'books', one: 'Book', add: 'Add book', site: (r) => `/books/${encodeURIComponent(r.slug)}`,
       cols: [['', (r) => thumb(r.cover, 1)], ['Title', (r) => `<b>${esc(r.title)}</b>`], ['Price', (r) => esc(money(r.price))],
-        ['File', (r) => (r.file_path ? `<span class="pill ok">PDF</span>` : r.external_url ? `<span class="pill">${esc(T('Link'))}</span>` : `<span class="pill bad">${esc(T('Missing'))}</span>`)],
+        ['File', (r) => (r.file_path ? `<span class="pill ok">PDF</span>` : r.external_url ? `<span class="pill ok">${esc(T('PDF link'))}</span>` : `<span class="pill bad">${esc(T('Missing'))}</span>`)],
         ['Buyers', (r) => r.owners], ['Status', statusPill]],
       fields: [
         { k: 'title', l: 'Title', req: 1, full: 1 }, { k: 'subtitle', l: 'Short description (one line)', full: 1 },
         { k: 'price', l: 'Price', type: 'number', hint: 'Put 0 to make it free' }, { k: 'old_price', l: 'Old price (optional, shown crossed out)', type: 'number' },
         { k: 'pages', l: 'Number of pages', type: 'number' },
         { k: 'cover', l: 'Cover image', type: 'image', aspects: ['3/4'] },
-        { k: 'file', l: 'Book file (PDF) - only buyers can download it', type: 'privatefile' },
-        { k: 'external_url', l: 'Or a link to read it online (optional)', type: 'url', full: 1 },
+        { k: 'file', l: 'Book file (PDF) - buyers read it on the site, it cannot be downloaded', type: 'privatefile' },
+        { k: 'external_url', l: 'Or a PDF link instead of uploading (saves storage)', type: 'url', full: 1, hint: 'Google Drive: share the file as "Anyone with the link" and paste the link. Dropbox or any direct PDF link also works. Buyers only see the pages, never the link.' },
         { k: 'description', l: 'Full description', type: 'md' },
         SORT, PUBLISH, SOON,
       ],
@@ -56,10 +56,13 @@
     },
     consults: {
       res: 'consult_types', one: 'Consultation', add: 'Add consultation type', site: () => '/consultations',
-      cols: [['Title', (r) => `<b>${esc(r.title)}</b>`], ['Duration', (r) => esc(T('{n} minutes', { n: r.duration_min }))], ['Price', (r) => esc(money(r.price))], ['Status', (r) => yes(r.published)]],
+      cols: [['Title', (r) => `<b>${esc(r.title)}</b>`], ['Today', (r) => esc(r.price_today ? money(r.price_today) : '—')], ['Within 2 days', (r) => esc(r.price_2d ? money(r.price_2d) : '—')],
+        ['Within 4 days', (r) => esc(r.price_4d ? money(r.price_4d) : (!r.price_today && !r.price_2d && r.price ? money(r.price) : '—'))], ['Status', (r) => yes(r.published)]],
       fields: [
         { k: 'title', l: 'Title', req: 1, full: 1 },
-        { k: 'duration_min', l: 'Duration (minutes)', type: 'number' }, { k: 'price', l: 'Price', type: 'number' },
+        { k: 'price_today', l: 'Price: book for today', type: 'number', hint: 'Leave empty to not offer this option' },
+        { k: 'price_2d', l: 'Price: within 2 days', type: 'number', hint: 'Leave empty to not offer this option' },
+        { k: 'price_4d', l: 'Price: within 4 days', type: 'number', hint: 'Leave empty to not offer this option' },
         { k: 'cover', l: 'Image (optional)', type: 'image', aspects: ['1/1'] },
         { k: 'description', l: 'Description', type: 'md' },
         SORT, PUBLISH,
@@ -179,10 +182,25 @@
   // ---------------------------------------------------------------------------
   const PLATFORMS = [['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['youtube', 'YouTube'], ['instagram', 'Instagram']];
   ADM.views.social = async (el) => {
-    const [rows, st] = await Promise.all([api('/api/admin/r/social_posts'), api('/api/admin/settings')]);
+    const [rows, st, fol] = await Promise.all([api('/api/admin/r/social_posts'), api('/api/admin/settings'), api('/api/admin/social/followers')]);
     const s = st.values;
     ADM.setTitle(T('Social media'), `<button class="btn" id="addPost">${ic('add', 'sm')} ${esc(T('Add a post'))}</button>`);
-    el.innerHTML = `<div class="panel"><div class="panel-body">
+    const nf = (n) => Number(n || 0).toLocaleString('en-US');
+    const autoInfo = (p) => {
+      const f = fol.fetched[p] || {};
+      if (f.n && (!f.failed_at || f.at > f.failed_at)) return `<span class="pill ok">${esc(T('Counted automatically: {n}', { n: nf(f.n) }))}</span>`;
+      if (f.failed_at) return `<span class="pill">${esc(T('Could not read it automatically - your number is used'))}</span>`;
+      return '';
+    };
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h3>${esc(T('Followers counter'))}</h3><span class="fol-total">${esc(T('Total'))}: <b>${nf(fol.total)}</b></span></div><div class="panel-body" id="folBox">
+        <p class="muted small" style="margin-top:0">${esc(T('One total of all your followers is shown at the top of the website. Type each number; with "count automatically" on, the site also tries to read the real numbers every 12 hours (YouTube and TikTok usually work, Instagram and Facebook often block it, so keep your typed number up to date).'))}</p>
+        <div class="fgrid">${PLATFORMS.map(([p, l]) => `<div class="fld"><label>${ic(p, 'sm')} ${esc(l)}</label><input type="number" min="0" step="1" data-k="followers_${p}" value="${esc(s[`followers_${p}`] || '')}" placeholder="0">${autoInfo(p)}</div>`).join('')}</div>
+        <div class="row" style="margin-top:12px">
+          <label class="switch"><input type="checkbox" data-k="followers_auto" ${s.followers_auto === '1' ? 'checked' : ''}> ${esc(T('Count automatically'))}</label>
+          <label class="switch"><input type="checkbox" data-k="followers_show" ${s.followers_show === '1' ? 'checked' : ''}> ${esc(T('Show at the top of the website'))}</label></div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="folSave">${esc(T('Save'))}</button><button class="btn ghost" id="folNow">${ic('refresh', 'sm')} ${esc(T('Count now'))}</button></div>
+      </div></div>
+      <div class="panel"><div class="panel-body">
         <p style="margin-top:0">${esc(T('Posts shown on the home page under "Follow Mohamed". YouTube videos are added automatically every few hours. For TikTok, Facebook and Instagram, paste the post link and the title and picture are filled in for you when possible.'))}</p>
         <div class="row"><span class="pill ${s.youtube_channel_id ? 'ok' : 'warn'}">YouTube: ${esc(s.youtube_channel_id ? T('connected') : T('add the channel link in "Site texts & images"'))}</span>
         ${s.youtube_channel_id ? `<button class="btn small ghost" id="sync">${ic('refresh', 'sm')} ${esc(T('Get latest videos now'))}</button>` : ''}</div></div></div>
@@ -194,6 +212,16 @@
           <button class="btn small ghost" data-edit="${r.id}">${ic('edit', 'sm')}</button>
           <a class="btn small ghost" href="${esc(r.url)}" target="_blank">${ic('external', 'sm')}</a></div></div>`).join('') || `<div class="empty">${esc(T('No posts yet.'))}</div>`}</div>`;
     const reload = () => ADM.views.social(el);
+    el.querySelector('#folSave').onclick = async () => {
+      const v = collect(el.querySelector('#folBox'));
+      v.followers_auto = v.followers_auto ? '1' : '0';
+      v.followers_show = v.followers_show ? '1' : '0';
+      try { await put('/api/admin/settings', { values: v }); toast(T('Saved')); reload(); } catch (e) { toast(e.message); }
+    };
+    el.querySelector('#folNow').onclick = async (e) => {
+      e.target.disabled = true; e.target.textContent = T('Loading…');
+      try { await post('/api/admin/social/followers'); toast(T('Done')); reload(); } catch (ex) { toast(ex.message); e.target.disabled = false; }
+    };
     document.getElementById('addPost').onclick = () => socialForm({}, reload);
     const sync = el.querySelector('#sync');
     if (sync) sync.onclick = async () => { sync.disabled = true; try { const r = await post('/api/admin/social/sync'); toast(T('{n} new videos added', { n: r.added || 0 })); reload(); } catch (e) { toast(e.message); sync.disabled = false; } };
@@ -250,6 +278,7 @@
     ['Name & logo', [...both('site_name', 'Site name'), ...both('tagline', 'Slogan'), { k: 'img_logo', l: 'Logo (small square image)', type: 'image', aspects: ['1/1'], fit: 'contain' }]],
     ['Home page - top section', [...both('hero_title', 'Big title'), ...both('hero_text', 'Text under the title', 'textarea'), { k: 'img_hero', l: 'Main photo of Mohamed', type: 'image', aspects: ['4/5', '1/1'], hint: 'Large on computers (first frame), wider on phones (second frame).' }]],
     ['About section', [...both('about_title', 'Title'), ...both('about_text', 'Text', 'textarea'), { k: 'img_about', l: 'Photo', type: 'image', aspects: ['1/1'], round: true }]],
+    ['Consultations - open session', [...both('consult_open_title', 'Title'), ...both('consult_open_text', 'Text', 'textarea')]],
     ['Page background images', ['img_courses', 'img_books', 'img_blog', 'img_consult'].map((k, i) => ({ k, l: ['Courses page', 'Books page', 'Blog page', 'Consultations page'][i], type: 'image', aspects: ['16/5', '16/9'] }))],
     ['Social media accounts', [
       { k: 'social_facebook', l: 'Facebook page link', type: 'url' }, { k: 'social_tiktok', l: 'TikTok account link', type: 'url' },

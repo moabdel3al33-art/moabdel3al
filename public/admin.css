@@ -348,3 +348,27 @@ body.admin-body .btn:not(.ghost):not(.green):not(.danger) {
 .sticky-save { position: sticky; bottom: 0; z-index: 3; padding: 12px 0; background: linear-gradient(to top, var(--c-bg) 70%, transparent); }
 @media (max-width: 600px) { .lr-img { width: 100%; } .lr-side { flex-direction: row; } }
 .note-warn { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; background: rgba(255, 179, 71, .14); color: #e09a2e; }
+
+/* ---------- Chat labels ---------- */
+.lbl-chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  color: var(--lc); background: color-mix(in srgb, var(--lc) 16%, transparent); }
+.lbl-chip i, .chip.lbl i { width: 8px; height: 8px; border-radius: 50%; background: var(--lc); flex: none; }
+.lbl-chip.big { font-size: 14px; padding: 4px 12px 4px 10px; }
+.chip.lbl.on { background: var(--lc); border-color: var(--lc); color: #111; }
+.chip.lbl.on i { background: #111; }
+.crow-labels { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.label-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--panel, var(--c-surface)); cursor: pointer; }
+.label-bar .lbl-chip { font-size: 12.5px; padding: 2px 10px 2px 8px; }
+.lbl-edit { color: var(--muted); display: inline-flex; }
+.lbl-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto; }
+.lbl-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; cursor: pointer; }
+.lbl-row:hover { background: var(--surface-2); }
+.lbl-row input { width: 18px; height: 18px; accent-color: var(--c-primary); }
+.lbl-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.lbl-form input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--c-bg); color: var(--c-text); font: inherit; }
+.lbl-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.lbl-color { width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.lbl-color.on { border-color: var(--c-text); box-shadow: 0 0 0 2px var(--c-bg) inset; }
+.late { color: #ff6b81; font-weight: 700; }
+.fol-total { margin-inline-start: auto; font-size: 15px; }
+.fol-total b { color: var(--c-primary); font-size: 18px; }

@@ -60,6 +60,7 @@ const INDEXES = {
   conversations: [[{ id: 1 }, { unique: true }], [{ client_id: 1, id: -1 }], [{ closed_by: 1 }]],
   messages: [[{ id: 1 }, { unique: true }], [{ client_id: 1, id: -1 }], [{ sender_type: 1, sender_id: 1 }], [{ order_id: 1 }]],
   quick_replies: [[{ id: 1 }, { unique: true }]],
+  chat_labels: [[{ id: 1 }, { unique: true }]],
   courses: [[{ id: 1 }, { unique: true }], [{ slug: 1 }, { unique: true }]],
   lessons: [[{ id: 1 }, { unique: true }], [{ course_id: 1 }]],
   books: [[{ id: 1 }, { unique: true }], [{ slug: 1 }, { unique: true }]],

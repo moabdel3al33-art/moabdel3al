@@ -99,10 +99,10 @@
   });
 
   // ---- Payment page ----
-  document.querySelectorAll('input[name=pm]').forEach((r) => {
+  document.querySelectorAll('.pm input[type=radio]').forEach((r) => {
     r.addEventListener('change', () => {
-      document.querySelectorAll('.pm').forEach((l) => l.classList.toggle('on', l.contains(r) ? r.checked : false));
-      document.querySelectorAll('.pm-panel').forEach((p) => { p.hidden = p.dataset.pm !== r.value; });
+      document.querySelectorAll(`.pm input[name="${r.name}"]`).forEach((x) => x.closest('.pm').classList.toggle('on', x.checked));
+      if (r.name === 'pm') document.querySelectorAll('.pm-panel').forEach((p) => { p.hidden = p.dataset.pm !== r.value; });
     });
   });
   document.addEventListener('click', async (e) => {
@@ -150,6 +150,29 @@
       } catch (ex) { err.textContent = ex.message; btn.disabled = false; }
     });
   }
+
+  // ---- Followers counter: counts up from 0 ----
+  const fn = document.querySelector('.fbar-n');
+  if (fn && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const total = Number(fn.dataset.count);
+    const fmt = new Intl.NumberFormat(document.documentElement.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 });
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / 1600);
+      fn.textContent = `${fmt.format(Math.round(total * (1 - (1 - k) ** 3)))}+`;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ---- Books pop up when the books section scrolls into view ----
+  const pops = document.querySelectorAll('.pop-books');
+  if (pops.length && 'IntersectionObserver' in window) {
+    const ob = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('popped'); ob.unobserve(e.target); } });
+    }, { threshold: 0.2 });
+    pops.forEach((p) => ob.observe(p));
+  } else pops.forEach((p) => p.classList.add('popped'));
 
   // ---- Bottom sheet ("More" menu on phones) ----
   function closeSheets() {

@@ -55,7 +55,7 @@ const RES = {
   },
   consult_types: {
     table: 'consult_types', perm: 'content', sort: { sort: 1, id: 1 },
-    fields: { title: 'str!', description: 'text', duration_min: 'int', price: 'num', cover: 'str', published: 'bool', sort: 'int' },
+    fields: { title: 'str!', description: 'text', price_today: 'numnull', price_2d: 'numnull', price_4d: 'numnull', cover: 'str', published: 'bool', sort: 'int' },
   },
   social_posts: {
     table: 'social_posts', perm: 'content', sort: { pinned: -1, posted_at: -1, created_at: -1 },
@@ -133,6 +133,7 @@ router.post('/r/:res', requirePerm(), wrap(async (req, res) => {
   if (def.table === 'posts') { row.author_id = req.user.id; if (row.published && !row.published_at) row.published_at = now(); }
   if (def.table === 'quick_replies') row.created_by = req.user.id;
   if (def.table === 'social_posts') { row.source = 'manual'; row.external_id = null; }
+  if (def.table === 'consult_types') row.price = require('./consult').fromPrice(row);
   const id = await insert(def.table, row);
   afterChange(req.params.res);
   res.json({ ok: true, id });
@@ -147,6 +148,7 @@ router.put('/r/:res/:id', requirePerm(), wrap(async (req, res) => {
   if (def.slug && req.body.slug !== undefined) row.slug = await uniqueSlug(def.table, req.body.slug || row.title || current.title, id);
   if (def.table !== 'quick_replies') row.updated_at = now();
   if (def.table === 'posts' && row.published && !current.published_at && !row.published_at) row.published_at = now();
+  if (def.table === 'consult_types') row.price = require('./consult').fromPrice({ ...current, ...row });
   if (Object.keys(row).length) await setOne(def.table, { id }, row);
   afterChange(req.params.res);
   res.json({ ok: true });
@@ -197,7 +199,7 @@ router.post('/private-upload', requirePerm('content'), privateUpload.single('fil
 // Settings (site texts, images, social links, colours)
 // ---------------------------------------------------------------------------
 const SETTINGS_PERM_KEYS = ['theme', 'currency', 'pay_course', 'pay_book', 'pay_plan', 'pay_consult', 'paypal_me', 'paypal_email', 'paypal_note_ar', 'paypal_note_en'];
-const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done'];
+const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done', 'followers_fetched'];
 router.get('/settings', requirePerm(), contentOrSettings, (req, res) => res.json({
   values: settings.all(), palettes: settings.PALETTES,
   payments: { gatewayReady: payments.gatewayReady(), gatewayMode: payments.gateway.mode, paypalMe: payments.paypalMeUrl() },
@@ -231,6 +233,8 @@ router.post('/social/preview', requirePerm('content'), wrap(async (req, res) => 
   if (!/^https?:\/\//.test(url)) return fail(res, 400, req.t('Please paste a full link starting with https://'));
   res.json(await social.preview(url));
 }));
+router.get('/social/followers', requirePerm('content'), (req, res) => res.json(social.followers()));
+router.post('/social/followers', requirePerm('content'), wrap(async (req, res) => { await social.refreshFollowers(); res.json(social.followers()); }));
 router.post('/social/sync', requirePerm('content'), wrap(async (req, res) => {
   try { res.json(await social.syncYoutube()); } catch (e) { fail(res, 400, e.message); }
 }));

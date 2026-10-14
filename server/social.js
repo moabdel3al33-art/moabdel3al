@@ -115,10 +115,81 @@ async function syncYoutube() {
   return { added };
 }
 
+// ---------------------------------------------------------------------------
+// Followers counter: one total of all platforms, shown at the top of the website.
+// Each platform has a number typed in the admin. When "count automatically" is on, the server also tries to
+// read the real number from the public profile page every 12 hours. YouTube and TikTok usually work;
+// Instagram and Facebook often block this, so their typed number is used when reading fails.
+// ---------------------------------------------------------------------------
+function parseCount(s) {
+  const m = String(s || '').replace(/,/g, '').match(/([\d.]+)\s*([KMB])?/i);
+  if (!m) return null;
+  const n = Number(m[1]) * ({ K: 1e3, M: 1e6, B: 1e9 }[(m[2] || '').toUpperCase()] || 1);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+const handle = (url, re) => (String(url || '').match(re) || [])[1];
+const FOLLOWER_READERS = {
+  async youtube() {
+    const id = settings.get('youtube_channel_id');
+    if (!id) return null;
+    const html = await fetchText(`https://www.youtube.com/channel/${id}?hl=en&gl=US`, 10000);
+    const m = html.match(/"subscriberCountText":\{[^}]*?"simpleText":"([^"]+)"/) || html.match(/([\d.,]+\s*[KMB]?)\s+subscribers/i);
+    return m ? parseCount(m[1]) : null;
+  },
+  async tiktok() {
+    const user = handle(settings.get('social_tiktok'), /tiktok\.com\/@([\w.-]+)/i);
+    if (!user) return null;
+    const html = await fetchText(`https://www.tiktok.com/@${user}?lang=en`, 10000);
+    const m = html.match(/"followerCount":(\d+)/);
+    return m ? Number(m[1]) : null;
+  },
+  async instagram() {
+    const user = handle(settings.get('social_instagram'), /instagram\.com\/([\w.]+)/i);
+    if (!user) return null;
+    const html = await fetchText(`https://www.instagram.com/${user}/`, 10000);
+    const m = html.match(/"edge_followed_by":\{"count":(\d+)/) || html.match(/content="([\d.,]+[KMB]?)\s+Followers/i);
+    return m ? parseCount(m[1]) : null;
+  },
+  async facebook() {
+    const url = settings.get('social_facebook');
+    if (!/facebook\.com\/[^/?#]+/i.test(url || '')) return null;
+    const html = await fetchText(url, 10000);
+    const m = html.match(/([\d.,]+\s?[KMB]?)\s+followers/i);
+    return m ? parseCount(m[1]) : null;
+  },
+};
+const FOLLOWER_PLATFORMS = Object.keys(FOLLOWER_READERS);
+const fetchedCounts = () => { try { return JSON.parse(settings.get('followers_fetched') || '{}'); } catch (e) { return {}; } };
+async function refreshFollowers() {
+  const out = fetchedCounts();
+  for (const p of FOLLOWER_PLATFORMS) {
+    try {
+      const n = await FOLLOWER_READERS[p]();
+      out[p] = n ? { n, at: now() } : { ...(out[p] || {}), failed_at: now() };
+    } catch (e) { out[p] = { ...(out[p] || {}), failed_at: now() }; }
+  }
+  await settings.save({ followers_fetched: JSON.stringify(out) });
+  return out;
+}
+// Number used for each platform: the automatic one (if on and read in the last 14 days), else the typed one.
+function followers() {
+  const auto = settings.get('followers_auto') === '1';
+  const got = fetchedCounts();
+  const per = {};
+  for (const p of FOLLOWER_PLATFORMS) {
+    const a = got[p] && got[p].n && now() - got[p].at < 14 * 864e5 ? got[p].n : 0;
+    per[p] = auto && a ? a : Math.max(0, Math.round(Number(settings.get(`followers_${p}`)) || 0));
+  }
+  return { per, total: Object.values(per).reduce((s, n) => s + n, 0), fetched: got, auto };
+}
+
 function scheduleSync() {
   const run = () => syncYoutube().catch((e) => console.log('YouTube sync skipped:', e.message));
   setTimeout(run, 15000).unref();
   setInterval(run, 6 * 3600e3).unref();
+  const counts = () => { if (settings.get('followers_auto') === '1') refreshFollowers().catch((e) => console.log('Followers count skipped:', e.message)); };
+  setTimeout(counts, 30000).unref();
+  setInterval(counts, 12 * 3600e3).unref();
 }
 
-module.exports = { PLATFORMS, detect, preview, syncYoutube, resolveYoutubeChannel, scheduleSync };
+module.exports = { PLATFORMS, detect, preview, syncYoutube, resolveYoutubeChannel, scheduleSync, refreshFollowers, followers, FOLLOWER_PLATFORMS };

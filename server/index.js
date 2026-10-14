@@ -95,6 +95,7 @@ chat.setup(io);
   await auth.seedAdmin();
   await seed.demo();
   await seed.plans();
+  await seed.consultTiers();
   social.scheduleSync();
   server.listen(config.port, () => {
     console.log(`\n  Website     : ${config.siteUrl}/`);

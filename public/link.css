@@ -39,7 +39,9 @@ img { display: block; max-width: 100%; }
   box-shadow: 0 8px 24px -12px rgba(0, 0, 0, .5); transition: transform .2s; }
 .lp-chip:hover { transform: scale(1.06); }
 .lp-chip .ic { width: 22px; height: 22px; }
-.lp-chip img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+/* the logo looks exactly like the one in the website header (same size, crop and zoom) */
+.lp-logo .brand-logo { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; display: block; background: var(--c-surface); }
+.lp-logo .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
 .lp-logo { left: 16px; }
 .lp-share { right: 16px; }
 

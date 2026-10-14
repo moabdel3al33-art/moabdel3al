@@ -107,7 +107,7 @@
       <div class="panel"><div class="lst">${rows.map((b) => `<div class="it">
         <div class="grow"><div class="row"><b>${esc(b.title || '')}</b>${pill(b.status)}</div>
           <div>${esc(b.client_name)} · <span dir="ltr">${esc(b.client_phone || '')}</span></div>
-          <div class="muted small">${b.scheduled_at ? `📅 ${esc(dateTime(b.scheduled_at))}` : esc(T('Preferred: {when}', { when: [b.preferred_date, b.preferred_time].filter(Boolean).join(' ') }))}</div>
+          <div class="muted small">${ADM.bookingWhen(b)}</div>
           ${b.notes ? `<div class="small">“${esc(b.notes)}”</div>` : ''}${b.meeting_link ? `<div class="small" dir="ltr">${esc(b.meeting_link)}</div>` : ''}</div>
         <div class="row"><button class="btn" data-edit="${b.id}">${ic('event', 'sm')} ${esc(T('Schedule / update'))}</button>
           ${ADM.can('chat') ? `<a class="btn ghost" href="#inbox/${b.user_id}">${ic('chat', 'sm')}</a>` : ''}</div></div>`).join('') || `<div class="empty">${esc(T('No bookings here.'))}</div>`}</div></div>`;
@@ -115,7 +115,7 @@
     el.querySelectorAll('[data-edit]').forEach((btn) => { btn.onclick = () => bookingForm(rows.find((r) => r.id === Number(btn.dataset.edit)), () => ADM.views.bookings(el)); });
   };
   function bookingForm(b, done) {
-    const m = openModal(`<h2>${esc(b.title || '')}</h2><p class="sub">${esc(b.client_name)} · ${esc(T('Preferred: {when}', { when: [b.preferred_date, b.preferred_time].filter(Boolean).join(' ') }))}</p>
+    const m = openModal(`<h2>${esc(b.title || '')}</h2><p class="sub">${esc(b.client_name)} · ${ADM.bookingWhen(b)}</p>
       <div class="fgrid" id="bf">
         ${fieldHtml({ k: 'status', l: 'Status', type: 'select', options: Object.keys(ST).filter((k) => k !== 'pending').map((k) => [k, ST[k]]) }, b.status)}
         ${fieldHtml({ k: 'scheduled_at', l: 'Appointment date & time', type: 'datetime' }, b.scheduled_at)}
@@ -242,7 +242,7 @@
           <div class="small">${esc(o.items || '')}</div><div class="muted small">${esc(dateTime(o.created_at))}</div></div></div>`).join('') || `<div class="empty">${esc(T('No orders yet.'))}</div>`}</div></div>
       </div>
       ${info.bookings.length ? `<div class="panel"><div class="panel-head"><h3>${esc(T('Consultations'))}</h3></div><div class="lst">${info.bookings.map((b) => `<div class="it"><div class="grow"><b>${esc(b.title || '')}</b> ${pill(b.status)}
-        <div class="muted small">${b.scheduled_at ? esc(dateTime(b.scheduled_at)) : esc([b.preferred_date, b.preferred_time].filter(Boolean).join(' '))}</div></div></div>`).join('')}</div></div>` : ''}`;
+        <div class="muted small">${ADM.bookingWhen(b)}</div></div></div>`).join('')}</div></div>` : ''}`;
     const act = el.querySelector('#active');
     if (act) act.onchange = async (e) => { try { await put(`/api/admin/clients/${id}`, { active: e.target.checked }); toast(T('Saved')); } catch (ex) { toast(ex.message); } };
     const dc = el.querySelector('#delClient');

@@ -7,6 +7,7 @@ const auth = require('./auth');
 const chat = require('./chat');
 const config = require('./config');
 const payments = require('./payments');
+const consult = require('./consult');
 
 const ITEM_TABLE = { course: 'courses', book: 'books', consultation: 'consult_types', plan: 'plans' };
 const SUB_TYPES = ['course', 'book']; // what a membership unlocks
@@ -86,6 +87,7 @@ function orderDraft(order, user, lang) {
   if (order.booking) {
     const b = order.booking;
     if (b.preferred_date || b.preferred_time) lines.push(`  ${t('Preferred time')}: ${[b.preferred_date, b.preferred_time].filter(Boolean).join(' ')}`);
+    if (b.whatsapp) lines.push(`  WhatsApp: ${countries.format(b.whatsapp, b.whatsapp_country)}`);
     if (b.notes) lines.push(`  ${t('Notes')}: ${b.notes}`);
   }
   lines.push('', `${t('Order number')}: #${order.id}`, `${t('Total')}: ${money(order.total, order.currency, lang)}`, '',
@@ -166,12 +168,17 @@ router.post('/bookings', requireAccount, wrap(async (req, res) => {
   const t = req.t;
   const type = await loadItem('consultation', req.body.type_id);
   if (!type || !type.published) return fail(res, 404, t('This item is not available'));
-  const date = String(req.body.date || '').slice(0, 20);
-  const time = String(req.body.time || '').slice(0, 20);
+  // No calendar: the client picks how soon (today / within 2 days / within 4 days) and leaves a WhatsApp number.
+  const tier = consult.tiersOf(type).find((x) => x.k === req.body.tier);
+  if (!tier) return fail(res, 400, t('Please choose when you want the session'));
+  const wa = countries.normalize(req.body.country, req.body.phone);
+  if (!wa) return fail(res, 400, t('Please enter your WhatsApp number'));
   const notes = String(req.body.notes || '').trim().slice(0, 2000);
-  if (!date) return fail(res, 400, t('Please choose a preferred date'));
-  const orderId = await createOrder(req.user, [{ type: 'consultation', id: type.id, title: type.title, price: type.price }]);
-  await insert('bookings', { user_id: req.user.id, type_id: type.id, order_id: orderId, preferred_date: date, preferred_time: time, notes, status: 'pending_payment', scheduled_at: null, meeting_link: null, admin_note: null, created_at: now() });
+  const orderId = await createOrder(req.user, [{ type: 'consultation', id: type.id, title: `${type.title} — ${t(tier.label)}`, price: tier.price }]);
+  await insert('bookings', {
+    user_id: req.user.id, type_id: type.id, order_id: orderId, tier: tier.k, whatsapp: wa.e164, whatsapp_country: wa.country, contact_by: consult.contactBy(tier.days),
+    preferred_date: null, preferred_time: null, notes, status: 'pending_payment', scheduled_at: null, meeting_link: null, admin_note: null, created_at: now(),
+  });
   res.json({ ok: true, orderId, redirect: payments.nextUrl(orderId, 'consultation') });
 }));
 

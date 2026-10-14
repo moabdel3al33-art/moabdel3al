@@ -48,6 +48,20 @@ Prices are in **US dollars** by default (Admin → Payments → Currency).
 
 PayPal setup: Admin → Payments → enter your **PayPal.me** link (e.g. `paypal.me/YourName`) and/or PayPal email. PayPal does not support EGP, so keep the currency in USD/EUR/GBP when using PayPal.
 
+## Consultations
+- Every consultation type has **3 booking options**, each with its own price (Admin → Consultations): **Book for today**, **Within 2 days**, **Within 4 days**. Leave a price empty to hide that option.
+- No calendar: the client picks the option, confirms their **WhatsApp number** (required) and pays. Staff see the option, the WhatsApp number (one click opens WhatsApp) and the "contact by" date in *Consultation bookings*; overdue ones are shown in red.
+- The consultations page highlights the **open session** (no time limit, no ending hour). Edit its title and text in *Site texts & images → Consultations - open session*.
+
+## Chat labels
+In the Inbox, the label button in a chat's header lets any team member tick labels (e.g. VIP, Paid, Follow up), create new ones with a colour, rename or delete them. Labels show on every chat in the list and can be used as filters.
+
+## Books: view-only reader
+Buyers read books on the site in a reader (zoom, full screen, page counter). There is no download or print button, and each page carries a faint watermark with the reader's name and phone. Upload the PDF, or (to save database space) paste a **PDF link** instead: Google Drive (shared as "Anyone with the link"), Dropbox or any direct PDF link. The server fetches it, so buyers never see the link.
+
+## Followers counter
+Admin → Social media → *Followers counter*: type each platform's followers. One total is shown in a thin bar at the top of every page. With *Count automatically* on, the server also tries to read the real numbers every 12 hours (YouTube and TikTok usually work; Instagram and Facebook often block it, so the typed number is used for them).
+
 ## Coming soon courses & books
 Tick **Coming soon** on a course or book. Its page then says *"Stay tuned! This content will be available soon."* and shows a **Book your seat** form (name, phone, optional email, note). There is no account and no payment. Bookings are in **Admin → Seat bookings** (filter, mark as contacted, WhatsApp button, export to Excel). Untick *Coming soon* when it is ready to sell.
 

@@ -78,7 +78,7 @@ async function buildRows(clients) {
       unread: c.chat_unread || 0, pending_since: c.chat_pending_since || null,
       last_responder: c.chat_last_responder ? nm(c.chat_last_responder) : null,
       responders: (c.chat_responders || []).map(nm).filter(Boolean),
-      pending_orders: pendMap.get(c.id) || 0, conv_id: cv ? cv.id : null, conv_status: cv ? cv.status : null,
+      labels: c.chat_labels || [], pending_orders: pendMap.get(c.id) || 0, conv_id: cv ? cv.id : null, conv_status: cv ? cv.status : null,
     };
     row.waiting_since = row.conv_status === 'open' && row.pending_since ? Number(row.pending_since) : null;
     row.online = isClientOnline(row.id);
@@ -245,6 +245,41 @@ router.post('/:clientId/end', requirePerm('chat'), wrap(async (req, res) => {
   await emitConv(clientId, await latestConv(clientId));
   res.json({ ok: true });
 }));
+// ---- Labels (like WhatsApp Business): any team member can tag a chat, e.g. "VIP", "Paid", "Follow up" ----
+const LABEL_COLORS = ['#25d366', '#53bdeb', '#f2a33a', '#ff6b81', '#a78bfa', '#f472b6', '#facc15', '#2dd4bf', '#94a3b8', '#c9a45c'];
+const cleanLabel = (b) => ({ name: String(b.name || '').trim().slice(0, 40), color: LABEL_COLORS.includes(b.color) ? b.color : LABEL_COLORS[0] });
+router.get('/labels', requirePerm('chat'), wrap(async (req, res) => res.json({ labels: await find('chat_labels', {}, { sort: { sort: 1, id: 1 } }), colors: LABEL_COLORS })));
+router.post('/labels', requirePerm('chat'), wrap(async (req, res) => {
+  const l = cleanLabel(req.body);
+  if (!l.name) return fail(res, 400, req.t('Please write the label name'));
+  const id = await insert('chat_labels', { ...l, sort: Date.now(), created_by: req.user.id, created_at: now() });
+  staffEmit('labels:changed');
+  res.json({ ok: true, id });
+}));
+router.put('/labels/:id', requirePerm('chat'), wrap(async (req, res) => {
+  const l = cleanLabel(req.body);
+  if (!l.name) return fail(res, 400, req.t('Please write the label name'));
+  await setOne('chat_labels', { id: Number(req.params.id) }, l);
+  staffEmit('labels:changed');
+  res.json({ ok: true });
+}));
+router.delete('/labels/:id', requirePerm('chat'), wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await col('chat_labels').deleteOne({ id });
+  await col('users').updateMany({ chat_labels: id }, { $pull: { chat_labels: id } });
+  staffEmit('labels:changed');
+  res.json({ ok: true });
+}));
+// Sets the labels of one client's chat.
+router.put('/:clientId/labels', requirePerm('chat'), wrap(async (req, res) => {
+  const clientId = Number(req.params.clientId);
+  const wanted = [...new Set((Array.isArray(req.body.ids) ? req.body.ids : []).map(Number))];
+  const ids = (await find('chat_labels', { id: { $in: wanted } })).map((l) => l.id);
+  await setOne('users', { id: clientId, role: 'client' }, { chat_labels: ids });
+  await pushChatRow(clientId);
+  res.json({ ok: true, ids });
+}));
+
 router.get('/quick-replies', requirePerm('chat'), wrap(async (req, res) => {
   res.json(await find('quick_replies', {}, { sort: { title: 1 } }));
 }));

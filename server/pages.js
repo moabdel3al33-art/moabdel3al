@@ -95,14 +95,50 @@ router.get('/books/:slug', wrap(async (req, res) => {
   const [list, rating, plans] = await Promise.all([comments.approvedFor('book', b.id), comments.ratingFor('book', b.id), plansList()]);
   res.send(views.book(ctxOf(req), b, { owned, pending, comments: list, rating, fromMonthly: cheapestMonthly(plans) }));
 }));
-router.get('/books/:slug/download', wrap(async (req, res) => {
-  if (needAccount(req, res)) return;
+// ---- Book reader: the PDF is shown on screen only (view only, no download button) ----
+async function readableBook(req, res) {
+  if (needAccount(req, res)) return null;
   const b = await one('books', { slug: req.params.slug });
-  if (!b || !b.file_path) return notFound(req, res);
-  if (!(await shop.hasAccess(req.user, 'book', b.id))) return res.redirect(`/books/${encodeURIComponent(b.slug)}`);
-  const name = path.basename(b.file_path);
-  if (!(await storage.send(req, res, name, { isPrivate: true, downloadName: b.file_name || `${b.slug}${path.extname(name)}` }))) return notFound(req, res);
+  if (!b || !(b.file_path || b.external_url)) { notFound(req, res); return null; }
+  if (!(await shop.hasAccess(req.user, 'book', b.id))) { res.redirect(`/books/${encodeURIComponent(b.slug)}`); return null; }
+  return b;
+}
+router.get('/books/:slug/download', (req, res) => res.redirect(`/books/${encodeURIComponent(req.params.slug)}/read`)); // old links
+router.get('/books/:slug/read', wrap(async (req, res) => {
+  const b = await readableBook(req, res); if (!b) return;
+  res.set('Cache-Control', 'no-store').send(views.reader(ctxOf(req), b));
 }));
+// The PDF bytes for the reader. An uploaded file comes from the database; a link (Google Drive, Dropbox, any PDF
+// address) is fetched by the server, so the client never sees the original link.
+router.get('/books/:slug/pdf', wrap(async (req, res) => {
+  if (req.headers['x-requested-with'] !== 'reader') return res.redirect(`/books/${encodeURIComponent(req.params.slug)}/read`); // opened directly
+  const b = await readableBook(req, res); if (!b) return;
+  res.set('Cache-Control', 'private, no-store').set('Content-Disposition', 'inline');
+  if (b.file_path) {
+    if (!(await storage.send(req, res, path.basename(b.file_path), { isPrivate: true }))) notFound(req, res);
+    return;
+  }
+  try {
+    const r = await fetch(directPdfUrl(b.external_url), { redirect: 'follow', signal: AbortSignal.timeout(60000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const type = r.headers.get('content-type') || '';
+    if (!r.ok || /text\/html/.test(type)) throw new Error(`HTTP ${r.status} ${type}`);
+    res.type('application/pdf');
+    if (r.headers.get('content-length')) res.set('Content-Length', r.headers.get('content-length'));
+    const { Readable } = require('stream');
+    Readable.fromWeb(r.body).on('error', () => res.destroy()).pipe(res);
+  } catch (e) {
+    console.error('pdf link', b.id, e.message);
+    res.status(502).json({ error: req.t('The book file could not be opened. Please tell us in the chat.') });
+  }
+}));
+// Share links -> direct file links. Google Drive files must be shared as "Anyone with the link".
+function directPdfUrl(u) {
+  const s = String(u || '').trim();
+  const g = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]{20,})/);
+  if (g) return `https://drive.usercontent.google.com/download?id=${g[1]}&export=download&confirm=t`;
+  if (/dropbox\.com\//.test(s)) return s.replace(/([?&])dl=0/, '$1dl=1').replace(/^(?!.*[?&]dl=1)(.*)$/, (m) => `${m}${m.includes('?') ? '&' : '?'}dl=1`);
+  return s;
+}
 
 // ---- Blog ----
 router.get('/blog', wrap(async (req, res) => {
@@ -135,7 +171,7 @@ router.get('/consultations/:id', wrap(async (req, res) => {
   if (needAccount(req, res)) return;
   const c = await one('consult_types', { id: Number(req.params.id), published: 1 });
   if (!c) return notFound(req, res);
-  res.send(views.bookingForm(ctxOf(req), c));
+  res.send(views.bookingForm(ctxOf(req), c, req.query));
 }));
 
 // ---- Checkout & chat ----

@@ -5,6 +5,7 @@ const { esc, money, embedUrl } = require('./util');
 const countries = require('../public/countries');
 const ImgPos = require('../public/imgpos');
 const payments = require('./payments');
+const consult = require('./consult');
 
 const VER = Date.now().toString(36); // cache-busting for css/js after each restart
 
@@ -50,6 +51,8 @@ const P = {
   paypal: 'M7.08 21.6H3.55a.6.6 0 0 1-.6-.69L5.86 2.5A.93.93 0 0 1 6.78 1.7h6.06c3.95 0 6.17 1.9 5.6 5.28-.6 3.62-3.1 5.4-6.6 5.4H9.98a.9.9 0 0 0-.9.77l-.98 6.18-.12.79a1 1 0 0 1-.9.83zm12.4-14.06c-.05.3-.1.6-.17.92-.95 4.86-4.2 6.54-8.36 6.54h-.62a1.03 1.03 0 0 0-1.02.87l-.86 5.42-.24 1.54a.54.54 0 0 0 .53.62h3.73a.9.9 0 0 0 .89-.76l.04-.19.7-4.46.05-.25a.9.9 0 0 1 .89-.76h.56c3.63 0 6.47-1.47 7.3-5.73.35-1.78.17-3.26-.75-4.31a3.6 3.6 0 0 0-1.03-.8l-.64-.66z',
   upload: 'M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z',
   copy: 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z',
+  bolt: 'M7 2v11h3v9l7-12h-4l4-8z',
+  infinity: 'M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L12 10.66 10.48 12h.01L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2A5.37 5.37 0 0 0 5.4 6.62C2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l2.83-2.5.01.01L13.52 12h-.01l2.69-2.39c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12a5.386 5.386 0 0 0 3.82 1.57c2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z',
   hourglass: 'M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z',
   tiktok: 'M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z',
 };
@@ -70,10 +73,10 @@ const fmtDate = (ctx, ts) => (ts ? new Date(Number(ts)).toLocaleDateString(ctx.l
 const fmtDateTime = (ctx, ts) => (ts ? new Date(Number(ts)).toLocaleString(ctx.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { dateStyle: 'full', timeStyle: 'short' }) : '');
 // Full accounts go straight on; chat-only clients are asked to create an account; visitors log in.
 const loginOr = (ctx, next) => (ctx.user && !ctx.user.is_guest ? next : `/${ctx.user ? 'register' : 'login'}?next=${encodeURIComponent(next)}`);
-function phoneField(ctx, { country, phone } = {}) {
+function phoneField(ctx, { country, phone, label } = {}) {
   const iso = country || ctx.countryGuess || countries.DEFAULT;
   const national = phone && phone.startsWith('+') ? countries.format(phone, iso).split(' ').slice(1).join('') : (phone || '');
-  return `<label>${esc(ctx.t('Phone (WhatsApp)'))}<div class="phone-field" dir="ltr">
+  return `<label>${esc(label || ctx.t('Phone (WhatsApp)'))}<div class="phone-field" dir="ltr">
     <select name="country" aria-label="${esc(ctx.t('Country'))}">${countries.options(ctx.lang, iso)}</select>
     <input name="phone" type="tel" autocomplete="tel-national" inputmode="tel" required placeholder="1012345678" value="${esc(national)}"></div></label>`;
 }
@@ -141,6 +144,17 @@ function tabBar(ctx, active) {
   </div>`;
 }
 
+// Thin bar at the very top: total followers of all platforms (counts up when the page opens).
+function followersBar(ctx) {
+  if (settings.get('followers_show') !== '1') return '';
+  const total = require('./social').followers().total;
+  if (!total) return '';
+  const compact = new Intl.NumberFormat(ctx.lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(total);
+  return `<div class="fbar"><div class="wrap fbar-in">
+    <span class="fbar-icons" aria-hidden="true">${['youtube', 'tiktok', 'instagram', 'facebook'].map((k) => icon(k)).join('')}</span>
+    <b class="fbar-n" data-count="${total}" dir="ltr">${esc(compact)}+</b><span>${esc(ctx.t('followers across all platforms'))}</span></div></div>`;
+}
+
 function layout(ctx, { title, desc, image, body, active = '', bodyClass = '', chrome = true, head = '', scripts = '', bottom }) {
   // bottom: undefined = tab bar on normal pages, a string = custom bottom bar (e.g. Buy), false = nothing.
   const bottomHtml = bottom === undefined ? (chrome === true ? tabBar(ctx, active) : '') : (bottom || '');
@@ -178,10 +192,11 @@ ${image || settings.get('img_hero') ? `<meta property="og:image" content="${esc(
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=El+Messiri:wght@500;600;700&display=swap" rel="stylesheet">
 <style>${settings.themeCss()}</style>
 <link rel="stylesheet" href="/site.css?v=${VER}">
+<script>document.documentElement.classList.add('js')</script>
 ${head}
 </head>
 <body class="${bodyClass} ${bottomHtml ? (bottom === undefined ? 'has-tabs' : 'has-bottom') : ''}">
-${chrome !== false ? `<header class="topbar" id="top">
+${chrome !== false ? `${followersBar(ctx)}<header class="topbar" id="top">
   <div class="wrap bar">
     <a class="brand" href="/">${logo ? logoTag(logo) : `<span class="brand-mark">${icon('brain')}</span>`}<span>${esc(name)}</span></a>
     <nav class="links" id="navLinks">
@@ -233,9 +248,9 @@ function courseCard(ctx, c, owned) {
       <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Continue watching'))}</span>` : soon ? soonFoot(ctx) : priceHtml(ctx, c)}
       ${c.lessons_count ? `<span class="meta">${icon('play')} ${esc(ctx.t('{n} lessons', { n: c.lessons_count }))}</span>` : ''}</div></div></a>`;
 }
-function bookCard(ctx, b, owned) {
+function bookCard(ctx, b, owned, i) {
   const soon = b.coming_soon && !owned;
-  return `<a class="card book" href="/books/${enc(b.slug)}">
+  return `<a class="card book" href="/books/${enc(b.slug)}"${i != null ? ` style="--i:${i}"` : ''}>
     <div class="card-img tall">${img(b.cover, b.title)}${owned ? `<span class="badge ok">${icon(owned === 'sub' ? 'crown' : 'check')} ${esc(ownedLabel(ctx, owned))}</span>` : soon ? soonBadge(ctx) : ''}</div>
     <div class="card-body"><h3>${esc(b.title)}</h3>${b.subtitle ? `<p>${esc(b.subtitle)}</p>` : ''}
       <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Read now'))}</span>` : soon ? soonFoot(ctx) : priceHtml(ctx, b)}</div></div></a>`;
@@ -246,11 +261,13 @@ function postCard(ctx, p) {
     <div class="card-body"><span class="meta">${esc(fmtDate(ctx, p.published_at || p.created_at))}</span><h3>${esc(p.title)}</h3>
       <p>${esc(p.excerpt || plain(p.body).slice(0, 160))}</p></div></a>`;
 }
+const openBadge = (ctx) => `<span class="open-badge">${icon('infinity')} ${esc(ctx.t('Open session'))}</span>`;
 function consultCard(ctx, c) {
+  const from = consult.fromPrice(c);
   return `<div class="card consult">
     <div class="consult-ic">${c.cover ? img(c.cover, c.title) : icon('calendar')}</div>
     <div class="card-body"><h3>${esc(c.title)}</h3><p>${esc(plain(c.description).slice(0, 200))}</p>
-      <div class="card-foot">${priceHtml(ctx, c)}<span class="meta">${icon('clock')} ${esc(ctx.t('{n} minutes', { n: c.duration_min }))}</span></div>
+      <div class="card-foot">${from ? `<span class="price"><small class="from">${esc(ctx.t('From'))}</small> ${esc(price(ctx, from))}</span>` : ''}${openBadge(ctx)}</div>
       <a class="btn primary block" href="${loginOr(ctx, `/consultations/${c.id}`)}">${icon('calendar')} ${esc(ctx.t('Book now'))}</a></div></div>`;
 }
 function socialPostCard(ctx, p) {
@@ -376,7 +393,7 @@ ${d.consults.length ? `<section class="sec alt"><div class="wrap">${sectionHead(
   <div class="grid rail">${d.consults.map((c) => consultCard(ctx, c)).join('')}</div></div></section>` : ''}
 
 ${d.books.length ? `<section class="wrap sec">${sectionHead(t('Books'), t('Digital books you can read anywhere'), '/books', t('All books'))}
-  <div class="grid books rail">${d.books.map((b) => bookCard(ctx, b, ownedOf(d.ownedBooks, b.id))).join('')}</div></section>` : ''}
+  <div class="grid books rail pop-books">${d.books.map((b, i) => bookCard(ctx, b, ownedOf(d.ownedBooks, b.id), i)).join('')}</div></section>` : ''}
 
 <section class="wrap sec about">
   <div class="about-img">${aboutImg ? pimg(aboutImg) : `<div class="ph big">${icon('brain')}</div>`}</div>
@@ -412,8 +429,7 @@ function mainAction(ctx, type, item, state) {
   const { t } = ctx;
   if (state.owned) {
     if (type === 'course') return state.firstLesson ? { href: `/courses/${enc(item.slug)}?lesson=${state.firstLesson}`, ic: 'play', label: t('Start watching') } : null;
-    if (item.file_path) return { href: `/books/${enc(item.slug)}/download`, ic: 'download', label: t('Download the book') };
-    if (item.external_url) return { href: item.external_url, ic: 'book', label: t('Read online'), ext: 1 };
+    if (item.file_path || item.external_url) return { href: `/books/${enc(item.slug)}/read`, ic: 'book', label: t('Read the book') };
     return null;
   }
   if (item.coming_soon) return { href: '#reserve', ic: 'calendar', label: t('Book your seat') };
@@ -437,8 +453,7 @@ function buyBox(ctx, type, item, state) {
   if (state.owned) {
     const action = type === 'course'
       ? (state.firstLesson ? `<a class="btn primary block lg" href="/courses/${enc(item.slug)}?lesson=${state.firstLesson}">${icon('play')} ${esc(t('Start watching'))}</a>` : '')
-      : (item.file_path ? `<a class="btn primary block lg" href="/books/${enc(item.slug)}/download">${icon('download')} ${esc(t('Download the book'))}</a>` : '')
-        + (item.external_url ? `<a class="btn ghost block" href="${esc(item.external_url)}" target="_blank" rel="noopener">${icon('book')} ${esc(t('Read online'))}</a>` : '');
+      : (item.file_path || item.external_url ? `<a class="btn primary block lg" href="/books/${enc(item.slug)}/read">${icon('book')} ${esc(t('Read the book'))}</a>` : '');
     return `<div class="buybox"><div class="owned">${icon('check')} ${esc(t('You own this'))}</div>${action}</div>`;
   }
   if (item.coming_soon) {
@@ -577,34 +592,58 @@ ${more.length ? `<section class="wrap sec">${sectionHead(t('More articles'), '',
   return layout(ctx, { title: p.title, desc: p.excerpt || plain(p.body), image: p.cover, body, active: 'blog' });
 }
 
+// "Open session" showcase: the sessions have no time limit.
+function openSession(ctx) {
+  const { t } = ctx;
+  return `<div class="open-session">
+    <div class="os-art" aria-hidden="true"><svg viewBox="0 0 120 60"><path class="os-track" d="M60 30C70 15 95 15 95 30S70 45 60 30 25 15 25 30 50 45 60 30Z"/>
+      <path class="os-flow" pathLength="100" d="M60 30C70 15 95 15 95 30S70 45 60 30 25 15 25 30 50 45 60 30Z"/></svg><span class="os-glow"></span></div>
+    <div class="os-text"><span class="os-kicker">${icon('star')} ${esc(t('My special feature'))}</span>
+      <h2>${esc(S(ctx, 'consult_open_title'))}</h2><p>${esc(S(ctx, 'consult_open_text'))}</p>
+      <ul class="os-points"><li>${icon('infinity')}<span>${esc(t('No time limit'))}</span></li><li>${icon('clock')}<span>${esc(t('No ending hour'))}</span></li>
+        <li>${icon('chat')}<span>${esc(t('Talk until you feel at ease'))}</span></li></ul></div>
+  </div>`;
+}
+function tierCards(ctx, c) {
+  const { t } = ctx;
+  return `<div class="tiers">${consult.tiersOf(c).map((x) => `<a class="tier ${x.k === 'today' ? 'hot' : ''}" href="${loginOr(ctx, `/consultations/${c.id}?tier=${x.k}`)}">
+      ${x.k === 'today' ? `<span class="tier-tag">${icon('bolt')} ${esc(t('Fastest'))}</span>` : ''}
+      <span class="tier-ic">${icon(x.icon)}</span><b class="tier-name">${esc(t(x.label))}</b><span class="tier-sub">${esc(t(x.sub))}</span>
+      <span class="tier-price">${esc(price(ctx, x.price))}</span>${openBadge(ctx)}
+      <span class="btn ${x.k === 'today' ? 'primary' : 'ghost'} block">${icon('calendar')} ${esc(t('Book now'))}</span></a>`).join('')}</div>`;
+}
 function consultations(ctx, list) {
   const { t } = ctx;
   const body = `${banner(ctx, t('Private consultations'), t('A one-to-one session to talk about your situation'), settings.get('img_consult'))}
-  <section class="wrap sec">${list.length ? `<div class="grid">${list.map((c) => consultCard(ctx, c)).join('')}</div>` : empty(ctx, t('No consultations available right now.'))}
+  <section class="wrap sec">${openSession(ctx)}
+  ${list.length ? list.map((c) => `<article class="cblock" id="c${c.id}">
+      <div class="cblock-head">${c.cover ? `<div class="consult-ic big">${img(c.cover, c.title)}</div>` : ''}<div><h2>${esc(c.title)}</h2>${c.description ? `<div class="prose">${md(c.description)}</div>` : ''}</div></div>
+      ${tierCards(ctx, c)}</article>`).join('') : empty(ctx, t('No consultations available right now.'))}
   <div class="steps">
-    <div><b>1</b><span>${esc(t('Choose a consultation and your preferred time'))}</span></div>
-    <div><b>2</b><span>${esc(t('Send the request in the chat and complete the payment'))}</span></div>
-    <div><b>3</b><span>${esc(t('We confirm the appointment and send you the meeting link'))}</span></div>
+    <div><b>1</b><span>${esc(t('Choose how soon you want your session'))}</span></div>
+    <div><b>2</b><span>${esc(t('Leave your WhatsApp number and complete the payment'))}</span></div>
+    <div><b>3</b><span>${esc(t('We contact you on WhatsApp within the time you chose'))}</span></div>
   </div></section>`;
   return layout(ctx, { title: t('Consultations'), body, active: 'consult' });
 }
-function bookingForm(ctx, c) {
-  const { t } = ctx;
-  const today = new Date().toISOString().slice(0, 10);
+function bookingForm(ctx, c, q = {}) {
+  const { t, user } = ctx;
+  const tiers = consult.tiersOf(c);
+  const pick = tiers.find((x) => x.k === q.tier) || tiers[0];
   const body = `
 <section class="wrap narrow sec">
   <a class="crumb" href="/consultations">${esc(t('Consultations'))}</a>
   <div class="checkout">
-    <div class="co-item"><div class="consult-ic">${icon('calendar')}</div><div><h1>${esc(c.title)}</h1>
-      <div class="meta-row"><span>${icon('clock')} ${esc(t('{n} minutes', { n: c.duration_min }))}</span>${priceHtml(ctx, c)}</div></div></div>
+    <div class="co-item"><div class="consult-ic">${c.cover ? img(c.cover, c.title) : icon('calendar')}</div><div><h1>${esc(c.title)}</h1>
+      <div class="meta-row">${openBadge(ctx)}<span class="muted small">${esc(t('No time limit — talk as long as you need'))}</span></div></div></div>
     <form class="form" data-api="/api/shop/bookings">
       <input type="hidden" name="type_id" value="${c.id}">
-      <div class="row2">
-        <label>${esc(t('Preferred date'))}<input type="date" name="date" min="${today}" required></label>
-        <label>${esc(t('Preferred time'))}<select name="time">
-          <option value="${esc(t('Morning'))}">${esc(t('Morning'))}</option><option value="${esc(t('Afternoon'))}">${esc(t('Afternoon'))}</option>
-          <option value="${esc(t('Evening'))}" selected>${esc(t('Evening'))}</option><option value="${esc(t('Any time'))}">${esc(t('Any time'))}</option></select></label>
-      </div>
+      <h3 class="pay-h">${esc(t('When should we contact you?'))}</h3>
+      <div class="pm-list">${tiers.map((x) => `<label class="pm ${x === pick ? 'on' : ''}"><input type="radio" name="tier" value="${x.k}" ${x === pick ? 'checked' : ''} required>
+        <span class="pm-ic">${icon(x.icon)}</span><span class="pm-txt"><b>${esc(t(x.label))}</b><span>${esc(t(x.sub))}</span></span>
+        <b class="pm-price">${esc(price(ctx, x.price))}</b><span class="pm-dot"></span></label>`).join('')}</div>
+      ${phoneField(ctx, { country: user.country, phone: user.phone, label: t('WhatsApp number') })}
+      <p class="note" style="margin-top:-8px">${icon('whatsapp')} ${esc(t('We will contact you on this WhatsApp number. Please make sure it is correct.'))}</p>
       <label>${esc(t('What would you like to talk about? (optional)'))}<textarea name="notes" rows="4" maxlength="2000"></textarea></label>
       ${payHint(ctx, 'consultation')}
       <div class="form-error"></div>
@@ -805,7 +844,7 @@ function account(ctx, d) {
   </div><div class="tab-sec" data-sec="consult" hidden>
   <h2>${esc(t('My consultations'))}</h2>
   ${d.bookings.length ? `<div class="list">${d.bookings.map((b) => `<div class="li"><div><b>${esc(b.title || '')}</b>
-      <div class="muted small">${b.scheduled_at ? `${icon('calendar')} ${esc(fmtDateTime(ctx, b.scheduled_at))}` : esc(t('Preferred: {when}', { when: [b.preferred_date, b.preferred_time].filter(Boolean).join(' ') }))}</div>
+      <div class="muted small">${b.scheduled_at ? `${icon('calendar')} ${esc(fmtDateTime(ctx, b.scheduled_at))}` : b.tier ? `${esc(t((consult.tier(b.tier) || {}).sub || ''))}` : esc(t('Preferred: {when}', { when: [b.preferred_date, b.preferred_time].filter(Boolean).join(' ') }))}</div>
       ${b.meeting_link && ['scheduled', 'paid'].includes(b.status) ? `<a href="${esc(b.meeting_link)}" target="_blank" rel="noopener">${esc(t('Join the meeting'))}</a>` : ''}</div>
       <span class="pill ${esc(b.status)}">${esc(statusLabel[b.status] || b.status)}</span></div>`).join('')}</div>`
     : `<p class="muted">${esc(t('No consultations yet.'))} <a href="/consultations">${esc(t('Book one'))}</a></p>`}
@@ -978,7 +1017,7 @@ ${cover ? `<div class="lp-backdrop" style="background-image:url('${esc(cover.src
   <header class="lp-hero ${cover ? '' : 'no-img'}">
     ${cover ? pimg(d.image, name, 'fetchpriority="high" decoding="async"') : ''}
     <div class="lp-fade"></div>
-    ${d.show_logo ? `<a class="lp-chip lp-logo" href="/" aria-label="${esc(site)}">${logo ? pimg(logo, '', 'decoding="async"') : icon('brain')}</a>` : ''}
+    ${d.show_logo ? `<a class="lp-chip lp-logo" href="/" aria-label="${esc(site)}">${logo ? logoTag(logo) : icon('brain')}</a>` : ''}
     <button class="lp-chip lp-share" type="button" data-share="${esc(url.href)}" data-title="${esc(name)}" aria-label="Share">${icon('share')}</button>
   </header>
   <section class="lp-body">
@@ -1014,6 +1053,46 @@ ${cover ? `<div class="lp-backdrop" style="background-image:url('${esc(cover.src
 </html>`;
 }
 
+// ---------------------------------------------------------------------------
+// Book reader (view only): pages are drawn on the screen with PDF.js, with no download / print button.
+// ---------------------------------------------------------------------------
+function reader(ctx, b) {
+  const { t, user, lang } = ctx;
+  const mark = [user.name, user.phone ? countries.format(user.phone, user.country) : ''].filter(Boolean).join(' · ');
+  const data = { pdf: `/books/${enc(b.slug)}/pdf`, mark, t: { page: t('Page'), of: t('of'), error: t('The book file could not be opened. Please tell us in the chat.'), loading: t('Opening the book…') } };
+  return `<!doctype html>
+<html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}" data-tone="${settings.isLight() ? 'light' : 'dark'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${esc(b.title)}</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>${settings.themeCss()}</style>
+<link rel="stylesheet" href="/reader.css?v=${VER}">
+</head>
+<body class="rd" oncontextmenu="return false">
+<header class="rd-bar">
+  <a class="rd-btn" href="/books/${enc(b.slug)}" aria-label="${esc(t('Back'))}">${icon('arrow', 'back')}</a>
+  <div class="rd-title"><b>${esc(b.title)}</b><span id="rdPage">${esc(data.t.loading)}</span></div>
+  <div class="rd-tools">
+    <button class="rd-btn" id="rdOut" aria-label="-" title="-"><svg class="ic" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg></button>
+    <span class="rd-zoom" id="rdZoom">100%</span>
+    <button class="rd-btn" id="rdIn" aria-label="+" title="+"><svg class="ic" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+    <button class="rd-btn" id="rdFull" aria-label="Full screen"><svg class="ic" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+  </div>
+  <div class="rd-progress"><span id="rdBar"></span></div>
+</header>
+<main class="rd-pages" id="rdPages"><div class="rd-loading"><span class="rd-spin"></span><p>${esc(data.t.loading)}</p></div></main>
+<script id="rdData" type="application/json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/reader.js?v=${VER}"></script>
+</body>
+</html>`;
+}
+
 function empty(ctx, text) { return `<div class="empty">${icon('brain')}<p>${esc(text)}</p></div>`; }
 function notFound(ctx) {
   const { t } = ctx;
@@ -1021,5 +1100,5 @@ function notFound(ctx) {
 }
 
 module.exports = {
-  VER, adminShell, chatEntry, payPage, linkPage, membership, reviews, home, courses, course, lessonPage, books, book, blog, post, consultations, bookingForm, checkout, authPage, account, chatPage, notFound, layout,
+  VER, adminShell, chatEntry, payPage, linkPage, reader, membership, reviews, home, courses, course, lessonPage, books, book, blog, post, consultations, bookingForm, checkout, authPage, account, chatPage, notFound, layout,
 };

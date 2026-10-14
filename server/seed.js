@@ -61,11 +61,11 @@ async function demo() {
   });
 
   await insert('consult_types', {
-    ...base, sort: 1, duration_min: 60, price: 1200, title: 'استشارة فردية كاملة',
+    ...base, sort: 1, price: 40, price_today: 80, price_2d: 60, price_4d: 40, title: 'استشارة فردية كاملة',
     description: 'جلسة أونلاين خاصة لمدة ساعة لمناقشة موقفك بالتفصيل (علاقة، عمل، أسرة) والخروج بخطة واضحة.',
   });
   await insert('consult_types', {
-    ...base, sort: 2, duration_min: 30, price: 600, title: 'جلسة سريعة',
+    ...base, sort: 2, price: 25, price_today: 50, price_2d: 35, price_4d: 25, title: 'جلسة سريعة',
     description: 'نصف ساعة للإجابة عن سؤال محدد أو موقف عاجل.',
   });
 
@@ -95,4 +95,11 @@ async function plans() {
   console.log('  Added 4 membership plans (monthly, 3, 6 and 12 months). Edit prices in the admin panel.');
 }
 
-module.exports = { demo, plans };
+// Consultation types made before the 3 booking options: their old price becomes the "within 4 days" price.
+async function consultTiers() {
+  const { col } = require('./db');
+  await col('consult_types').updateMany({ price_today: { $exists: false }, price_2d: { $exists: false }, price_4d: { $exists: false } },
+    [{ $set: { price_4d: { $cond: [{ $gt: ['$price', 0] }, '$price', null] }, price_today: null, price_2d: null } }]);
+}
+
+module.exports = { demo, plans, consultTiers };

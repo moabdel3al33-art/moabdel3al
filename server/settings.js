@@ -52,6 +52,10 @@ const DEFAULTS = {
   paypal_note_en: '',
   // ---- Hidden "link in bio" page (JSON, edited in Admin > Link page) ----
   linkpage: '',
+  consult_open_title_ar: 'جلستك مفتوحة… بلا وقت محدد',
+  consult_open_title_en: 'Your session is open… with no time limit',
+  consult_open_text_ar: 'ميزتي الخاصة: لا يوجد عدّاد دقائق ولا ساعة نهاية. تكلّم معي بالوقت الذي تحتاجه حتى تصل لإجابتك وتطمئن تماماً.',
+  consult_open_text_en: 'My special feature: no minute counter and no ending hour. Talk with me for as long as you need, until you get your answer and feel fully at ease.',
   img_logo: '',
   img_hero: '',
   img_about: '',
@@ -64,6 +68,14 @@ const DEFAULTS = {
   social_youtube: 'https://www.youtube.com/',
   social_instagram: 'https://www.instagram.com/',
   youtube_channel_id: '',
+  // ---- Followers counter (top of the website) ----
+  followers_show: '1',
+  followers_auto: '1',
+  followers_facebook: '',
+  followers_tiktok: '',
+  followers_youtube: '',
+  followers_instagram: '',
+  followers_fetched: '',
 };
 
 let cache = { ...DEFAULTS };
