@@ -16,10 +16,11 @@ Arabic by default, with an English switch. No build step and no front-end framew
 
 On the first run, demo content is added (2 courses, 2 books, 2 articles, 2 consultation types, 3 quick replies). Edit or delete it from the admin panel.
 
-## Email verification codes
-- While `SMTP_PASS` in `.env` is empty, codes are **printed in the terminal** and shown on the page (testing only).
-- To send real emails from Gmail: Google Account → Security → 2-Step Verification → **App passwords** → create one → paste it into `SMTP_PASS`.
-- For the business account later, change `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` only.
+## Email is optional
+- Nothing on the site needs an email. Sign-up asks for name, phone and password; email is an optional field (also editable in *My details*).
+- There is no email code step any more: the account is ready straight away. Log in with phone or email.
+- The email is only used for "Forgot password" codes and receipts. Clients without an email who forget their password message the team in the chat.
+- To send real emails from Gmail: Google Account → Security → 2-Step Verification → **App passwords** → paste it into `SMTP_PASS`.
 
 ## Clients, phone numbers and the chat
 - **Chat without an account:** the client writes his name and phone number (with a country code picker). The phone number is unique and is his ID, so typing the same number again reopens his saved chat.
@@ -30,11 +31,29 @@ On the first run, demo content is added (2 courses, 2 books, 2 articles, 2 consu
 - **Admin → Clients:** totals, active/inactive (7/30/90/180 days), with account vs chat only, buyers, new this week, a per-country table (click a country to filter), and export to Excel/CSV.
 
 ## How buying works
-1. The client presses **Buy** → logs in or creates an account (email verified with a code). Chat-only clients are asked to create an account (their chat is kept).
-2. The checkout page shows the order and the payment instructions.
-3. **Continue to payment in the chat** → the chat opens with a ready message (order and client details). The client presses send.
-4. An employee replies with the payment details. Once paid, they press **Confirm payment**, either in the chat's client panel or in *Orders & payments*.
-5. The client gets access immediately and is told in the chat. For consultations, staff then set the date and meeting link in *Consultation bookings*.
+Prices are in **US dollars** by default (Admin → Payments → Currency).
+
+1. The client presses **Buy** → logs in or creates an account. Chat-only clients are asked to create an account (their chat is kept).
+2. The checkout page shows the order → **Continue to payment**.
+3. The client pays with one of the methods you allowed for that kind of product (**Admin → Payments**). You choose separately for courses, books, membership plans and consultations; tick one or more. With several, the client picks on the payment page `/pay/<order>`.
+   - **Chat**: the chat opens with a ready message. Your team replies with payment details and presses **Confirm payment**.
+   - **PayPal + screenshot**: the payment page walks the client through it step by step:
+     1. "Pay $X with PayPal" opens your PayPal.me link with the exact amount (or shows your PayPal email with a Copy button).
+     2. They send the payment and write the order number in the PayPal note.
+     3. They take a screenshot of PayPal's success screen (the page shows the keys for Android, iPhone, Windows and Mac).
+     4. They upload the screenshot (plus an optional transaction ID) on the payment page.
+     5. The screenshot appears in your **Inbox** and in **Orders & payments** marked *Screenshot received*. Check the money is in your PayPal, then press **Confirm payment**.
+   - **Online payment (automatic)**: PayPal Checkout (card or PayPal account). The order is activated by itself after paying. Needs `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_MODE=live` (see `.env.example`). Until those are set it is hidden from clients.
+4. The client gets access immediately and is told in the chat. For consultations, staff then set the date and meeting link in *Consultation bookings*.
+
+PayPal setup: Admin → Payments → enter your **PayPal.me** link (e.g. `paypal.me/YourName`) and/or PayPal email. PayPal does not support EGP, so keep the currency in USD/EUR/GBP when using PayPal.
+
+## Coming soon courses & books
+Tick **Coming soon** on a course or book. Its page then says *"Stay tuned! This content will be available soon."* and shows a **Book your seat** form (name, phone, optional email, note). There is no account and no payment. Bookings are in **Admin → Seat bookings** (filter, mark as contacted, WhatsApp button, export to Excel). Untick *Coming soon* when it is ready to sell.
+
+## Link page (link in bio)
+**Admin → Link page** builds a Linktree-style page: a big photo whose bottom fades into the page, your name, a short text, social media icons and a list of buttons (each with a round picture). Buttons can open any page of the site (pick it from the list, course and book covers are used as pictures) or any other link; reorder, hide or highlight them.
+The page lives at a **secret link** `/p/<link>`. It is not linked anywhere on the website and is hidden from Google, so only people with the link can open it. You can change the link at any time (the old one stops working) or switch the page off.
 
 ## Roles
 | Role | Can do |
@@ -87,9 +106,9 @@ Paste the normal Vimeo (or YouTube) link of each lesson. The video player is sho
 ## Files
 ```
 server/   index.js (start) · db.js (MongoDB) · auth.js (accounts, roles, codes) · chat.js (live chat)
-          shop.js (orders, access) · admin.js (admin API) · pages.js + views.js (website pages)
+          shop.js (orders, access, seat bookings) · payments.js (chat / PayPal / PayPal Checkout) · linkpage.js (link in bio) · admin.js (admin API) · pages.js + views.js (website pages)
           social.js (YouTube/TikTok fetch) · settings.js (texts, images, colours) · seed.js (demo content)
-public/   site.css/js (website) · styles.css + common.js (chat UI) · chat-page.js
+public/   site.css/js (website) · link.css (link page) · styles.css + common.js (chat UI) · chat-page.js
           admin-*.js + admin.css (admin panel) · locales.js (translations) · md.js (text formatting)
 _old-chat-app/   backup of the first chat-only version
 ```

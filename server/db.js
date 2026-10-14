@@ -74,6 +74,7 @@ const INDEXES = {
   comments: [[{ id: 1 }, { unique: true }], [{ target_type: 1, target_id: 1, status: 1 }], [{ status: 1 }]],
   plans: [[{ id: 1 }, { unique: true }]],
   subscriptions: [[{ id: 1 }, { unique: true }], [{ user_id: 1, ends_at: -1 }]],
+  reservations: [[{ id: 1 }, { unique: true }], [{ item_type: 1, item_id: 1, phone: 1 }], [{ status: 1 }]],
 };
 
 async function init() {

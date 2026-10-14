@@ -155,6 +155,13 @@ async function systemMessage(clientId, body) {
   await emitMessage(msg);
 }
 
+// Used by the payment pages: posts a message (e.g. the payment screenshot) in the client's chat as if the client sent it.
+async function clientMessage(clientId, { type = 'text', body = '', fileUrl = null, fileName = null, orderId = null }) {
+  const conv = await ensureOpenConv(clientId);
+  const msg = await insertMessage({ clientId, convId: conv.id, senderType: 'client', senderId: clientId, type, body, fileUrl, fileName, orderId, deliveredAt: staffOnline() ? now() : null });
+  await emitMessage(msg);
+}
+
 async function markRead(clientId, readerKind) {
   const t = now();
   const side = readerKind === 'client' ? 'staff' : 'client';
@@ -443,4 +450,4 @@ function kickUser(userId) {
   io.in(`client:${userId}`).disconnectSockets(true);
 }
 
-module.exports = { router, setup, systemMessage, sys, staffEmit, orderEmit, latestConv, pushChatRow, chatRows, staffSockets, isClientOnline, kickUser };
+module.exports = { router, setup, systemMessage, clientMessage, sys, staffEmit, orderEmit, latestConv, pushChatRow, chatRows, staffSockets, isClientOnline, kickUser };

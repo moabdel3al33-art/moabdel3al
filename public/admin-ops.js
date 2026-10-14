@@ -8,12 +8,14 @@
   const ST = { pending: 'Waiting for payment', paid: 'Paid', cancelled: 'Cancelled', pending_payment: 'Waiting for payment', scheduled: 'Scheduled', done: 'Completed' };
   const KIND = { course: '🎓', book: '📚', consultation: '📅' };
   const pill = (s) => `<span class="pill ${esc(s)}">${esc(T(ST[s] || s))}</span>`;
+  const METHOD_PILL = (o) => (o.method ? `<span class="pill">${esc(T({ chat: 'Chat', paypal: 'PayPal', gateway: 'Online payment' }[o.method] || o.method))}</span>` : '');
   const chips = (list, cur) => `<div class="chips">${list.map(([k, l]) => `<button class="chip ${cur === k ? 'on' : ''}" data-f="${k}">${esc(T(l))}</button>`).join('')}</div>`;
 
   ADM.refreshBadges = async () => {
     try {
       const o = await api('/api/admin/overview');
       if (o.pendingOrders != null) ADM.badge('orders', o.pendingOrders);
+      if (o.newReservations != null) ADM.badge('reservations', o.newReservations);
       if (o.newBookings != null) ADM.badge('bookings', o.newBookings);
       if (o.pendingComments != null) ADM.badge('comments', o.pendingComments);
     } catch (e) { /* ignore */ }
@@ -27,12 +29,14 @@
   ADM.views.orders = async (el) => {
     const rows = await api(`/api/admin/orders${orderFilter === 'all' ? '' : `?status=${orderFilter}`}`);
     el.innerHTML = `<div class="toolbar">${chips([['pending', 'Waiting for payment'], ['paid', 'Paid'], ['cancelled', 'Cancelled'], ['all', 'All']], orderFilter)}</div>
-      <p class="muted small">${esc(T('When a client pays (in the chat), press "Confirm payment". They get access immediately and are told in the chat.'))}</p>
-      <div class="panel"><div class="lst">${rows.map((o) => `<div class="it">
-        <div class="grow"><div class="row"><b>#${o.id}</b>${pill(o.status)}<b>${esc(money(o.total))}</b></div>
+      <p class="muted small">${esc(T('When a client pays (in the chat or with a PayPal screenshot), press "Confirm payment". They get access immediately and are told in the chat. Online payments are confirmed automatically.'))}</p>
+      <div class="panel"><div class="lst">${rows.map((o) => `<div class="it ${o.status === 'pending' && o.proof ? 'has-proof' : ''}">
+        ${o.proof ? `<a class="proof-th" href="${esc(o.proof.url)}" target="_blank" title="${esc(T('Open the screenshot'))}">${/\.pdf$/i.test(o.proof.url) ? 'PDF' : `<img src="${esc(o.proof.url)}" alt="">`}</a>` : ''}
+        <div class="grow"><div class="row"><b>#${o.id}</b>${pill(o.status)}<b>${esc(money(o.total))}</b>${METHOD_PILL(o)}</div>
+          ${o.proof ? `<div class="small"><b>${esc(T('Screenshot received'))}</b> · ${esc(dateTime(o.proof.at))}${o.proof.txn ? ` · ${esc(T('Transaction ID'))}: <span dir="ltr">${esc(o.proof.txn)}</span>` : ''}${o.proof.note ? ` · ${esc(o.proof.note)}` : ''}</div>` : ''}
           <div>${(o.items || '').split(' | ').map((x) => { const [k, ...t] = x.split(':'); return `${KIND[k] || ''} ${esc(t.join(':'))}`; }).join('<br>')}</div>
           <div class="muted small">${esc(o.client_name)} · <span dir="ltr">${esc(o.client_phone || '')}</span> · <span dir="ltr">${esc(o.client_email || '')}</span></div>
-          <div class="muted small">${esc(dateTime(o.created_at))}${o.paid_at ? ` · ${esc(T('confirmed by {name}', { name: o.paid_by_name || '—' }))} ${esc(dateTime(o.paid_at))}` : ''}</div></div>
+          <div class="muted small">${esc(dateTime(o.created_at))}${o.paid_at ? ` · ${esc(o.paid_by ? T('confirmed by {name}', { name: o.paid_by_name || '—' }) : T('paid online (automatic)'))} ${esc(dateTime(o.paid_at))}` : ''}</div></div>
         <div class="row">${o.status === 'pending' ? `<button class="btn green" data-confirm="${o.id}">${ic('check', 'sm')} ${esc(T('Confirm payment'))}</button><button class="btn ghost" data-cancel="${o.id}">${esc(T('Cancel'))}</button>` : ''}
           ${ADM.can('chat') ? `<a class="btn ghost" href="#inbox/${o.user_id}">${ic('chat', 'sm')} ${esc(T('Open chat'))}</a>` : ''}</div></div>`).join('') || `<div class="empty">${esc(T('No orders here.'))}</div>`}</div></div>`;
     el.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { orderFilter = b.dataset.f; ADM.views.orders(el); }; });
@@ -48,6 +52,49 @@
         try { await post(`/api/admin/orders/${b.dataset.cancel}/cancel`); ADM.refreshBadges(); ADM.views.orders(el); } catch (e) { toast(e.message); }
       };
     });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Seat bookings for "coming soon" courses and books (no payment)
+  // ---------------------------------------------------------------------------
+  let resFilter = 'new';
+  let resItem = '';
+  ADM.views.reservations = async (el) => {
+    const all = await api(`/api/admin/reservations${resFilter === 'all' ? '' : `?status=${resFilter}`}`);
+    const items = [...new Map(all.map((r) => [`${r.item_type}:${r.item_id}`, { key: `${r.item_type}:${r.item_id}`, title: r.title, type: r.item_type }])).values()];
+    const count = (k) => all.filter((r) => `${r.item_type}:${r.item_id}` === k).length;
+    const rows = resItem ? all.filter((r) => `${r.item_type}:${r.item_id}` === resItem) : all;
+    ADM.setTitle(T('Seat bookings (coming soon)'), `<button class="btn ghost" id="resCsv">${ic('download', 'sm')} ${esc(T('Export to Excel (CSV)'))}</button>`);
+    el.innerHTML = `<div class="toolbar">${chips([['new', 'New'], ['contacted', 'Contacted'], ['all', 'All']], resFilter)}</div>
+      <p class="muted small">${esc(T('People who booked a seat for a course or book marked "Coming soon". No payment was taken. Contact them when it opens.'))}</p>
+      ${items.length > 1 ? `<div class="chips" style="margin-bottom:12px"><button class="chip ${resItem ? '' : 'on'}" data-item="">${esc(T('All'))} (${all.length})</button>${items.map((i) => `<button class="chip ${resItem === i.key ? 'on' : ''}" data-item="${esc(i.key)}">${KIND[i.type] || ''} ${esc(i.title)} (${count(i.key)})</button>`).join('')}</div>` : ''}
+      <div class="panel"><div class="lst">${rows.map((r) => `<div class="it">
+        <div class="grow"><div class="row"><b>${esc(r.name)}</b>${r.status === 'new' ? `<span class="pill warn">${esc(T('New'))}</span>` : `<span class="pill ok">${esc(T('Contacted'))}</span>`}</div>
+          <div>${KIND[r.item_type] || ''} ${esc(r.title)}</div>
+          <div class="muted small">${flag(r.country)} <span dir="ltr">${esc(fmtPhone(r.phone, r.country))}</span>${r.email ? ` · <span dir="ltr">${esc(r.email)}</span>` : ''} · ${esc(dateTime(r.created_at))}</div>
+          ${r.notes ? `<div class="small">“${esc(r.notes)}”</div>` : ''}</div>
+        <div class="row"><a class="btn ghost" href="https://wa.me/${esc(String(r.phone || '').replace(/\D/g, ''))}" target="_blank">${ic('whatsapp', 'sm')} WhatsApp</a>
+          ${r.user_id && ADM.can('chat') ? `<a class="btn ghost" href="#inbox/${r.user_id}">${ic('chat', 'sm')} ${esc(T('Open chat'))}</a>` : ''}
+          <button class="btn ${r.status === 'new' ? 'green' : 'ghost'}" data-st="${r.id}" data-to="${r.status === 'new' ? 'contacted' : 'new'}">${esc(T(r.status === 'new' ? 'Mark as contacted' : 'Mark as new'))}</button>
+          <button class="icon-btn" data-del="${r.id}" title="${esc(T('Delete'))}" style="color:#ff6b81">${ic('trash')}</button></div></div>`).join('') || `<div class="empty">${esc(T('No seat bookings here.'))}</div>`}</div></div>`;
+    el.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { resFilter = b.dataset.f; ADM.views.reservations(el); }; });
+    el.querySelectorAll('[data-item]').forEach((b) => { b.onclick = () => { resItem = b.dataset.item; ADM.views.reservations(el); }; });
+    el.querySelectorAll('[data-st]').forEach((b) => { b.onclick = async () => { await put(`/api/admin/reservations/${b.dataset.st}`, { status: b.dataset.to }); ADM.refreshBadges(); ADM.views.reservations(el); }; });
+    el.querySelectorAll('[data-del]').forEach((b) => {
+      b.onclick = async () => {
+        if (!(await confirmDialog(T('Delete this seat booking?'), '', T('Delete'), true))) return;
+        await del(`/api/admin/reservations/${b.dataset.del}`); ADM.refreshBadges(); ADM.views.reservations(el);
+      };
+    });
+    document.getElementById('resCsv').onclick = () => {
+      const lines = [['Name', 'Phone', 'Country', 'Email', 'Item', 'Notes', 'Status', 'Date'].map((h) => T(h)),
+        ...rows.map((r) => [r.name, fmtPhone(r.phone, r.country) || r.phone, countryName(r.country), r.email || '', r.title, r.notes || '', T(r.status === 'new' ? 'New' : 'Contacted'), dateTime(r.created_at)])];
+      const csv = lines.map((r) => r.map((v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = `seat-bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    };
   };
 
   // ---------------------------------------------------------------------------
@@ -88,7 +135,7 @@
   // ---------------------------------------------------------------------------
   // Filters are kept while moving between pages.
   const CF = { q: '', country: '', status: '', type: '', days: 30 };
-  const TYPE_PILL = { guest: ['Chat only', ''], account: ['Account', 'ok'], pending: ['Email not verified', 'warn'] };
+  const TYPE_PILL = { guest: ['Chat only', ''], account: ['Account', 'ok'], pending: ['Sign-up not finished', 'warn'] };
   let lastRows = [];
 
   ADM.views.clients = async (el, arg) => {
@@ -122,7 +169,7 @@
         <select id="fCountry" class="search" style="border-radius:999px;padding:8px 12px"><option value="">${esc(T('All countries'))}</option>
           ${stats.byCountry.filter((c) => c.country !== '--').map((c) => `<option value="${c.country}" ${CF.country === c.country ? 'selected' : ''}>${esc(countryName(c.country))} (${c.total})</option>`).join('')}</select>
         <select id="fStatus" class="search" style="border-radius:999px;padding:8px 12px">${[['', 'Active & inactive'], ['active', 'Active'], ['inactive', 'Inactive']].map(([v, l]) => `<option value="${v}" ${CF.status === v ? 'selected' : ''}>${esc(T(l))}</option>`).join('')}</select>
-        <select id="fType" class="search" style="border-radius:999px;padding:8px 12px">${[['', 'All types'], ['account', 'With account'], ['guest', 'Chat only'], ['buyers', 'Buyers'], ['pending', 'Email not verified']].map(([v, l]) => `<option value="${v}" ${CF.type === v ? 'selected' : ''}>${esc(T(l))}</option>`).join('')}</select>
+        <select id="fType" class="search" style="border-radius:999px;padding:8px 12px">${[['', 'All types'], ['account', 'With account'], ['guest', 'Chat only'], ['buyers', 'Buyers'], ['pending', 'Sign-up not finished']].map(([v, l]) => `<option value="${v}" ${CF.type === v ? 'selected' : ''}>${esc(T(l))}</option>`).join('')}</select>
       </div>
       <div id="ct"><div class="empty">${esc(T('Loading…'))}</div></div>`;
 
@@ -171,7 +218,7 @@
       <div class="panel" style="margin-top:12px"><div class="panel-body row">${avatar(c.name, c.id, 'lg', c.online)}
         <div class="grow"><div style="font-size:19px;font-weight:800">${esc(c.name)} ${starsHtml(c.client_rating, 'sm')}</div>
         <div class="muted small">${flag(c.country)} ${esc(countryName(c.country))} · <span dir="ltr">${esc(fmtPhone(c.phone, c.country) || '')}</span>${c.email ? ` · <span dir="ltr">${esc(c.email)}</span>` : ''} · ${esc(T('Joined {date}', { date: date(c.created_at) }))}</div>
-        <div style="margin-top:4px"><span class="pill ${c.is_guest ? '' : c.email_verified ? 'ok' : 'warn'}">${esc(T(c.is_guest ? 'Chat only' : c.email_verified ? 'Account' : 'Email not verified'))}</span>
+        <div style="margin-top:4px"><span class="pill ${c.is_guest ? '' : c.email_verified ? 'ok' : 'warn'}">${esc(T(c.is_guest ? 'Chat only' : c.email_verified ? 'Account' : 'Sign-up not finished'))}</span>
           ${c.last_seen ? `<span class="muted small">${esc(T('last seen {time}', { time: dateTime(c.last_seen) }))}</span>` : ''}</div>
         ${c.client_note ? `<div class="small">📝 ${esc(c.client_note)}</div>` : ''}</div>
         ${ADM.can('accounts') ? `<div class="row"><label class="switch"><input type="checkbox" id="active" ${c.active ? 'checked' : ''}> ${esc(T('Account active'))}</label>

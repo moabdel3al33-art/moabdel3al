@@ -4,6 +4,7 @@ const { md, plain } = require('../public/md');
 const { esc, money, embedUrl } = require('./util');
 const countries = require('../public/countries');
 const ImgPos = require('../public/imgpos');
+const payments = require('./payments');
 
 const VER = Date.now().toString(36); // cache-busting for css/js after each restart
 
@@ -37,6 +38,19 @@ const P = {
   facebook: 'M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07',
   youtube: 'M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.87.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z',
   instagram: 'M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 2.7.27.27 2.69.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.36 2.62 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.2-4.35-2.62-6.78-6.98-6.98C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z',
+  linkedin: 'M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zm1.78 13.02H3.56V9h3.56v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0h.01z',
+  x: 'M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.59l5.24 6.93 6.07-6.93zm-1.29 19.5h2.04L6.49 3.24H4.3l13.31 17.41z',
+  whatsapp: 'M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.39-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.8-1.31l-.34-.2-3.56.93.95-3.47-.22-.36a9.4 9.4 0 0 1-1.44-5.02c0-5.2 4.23-9.43 9.44-9.43 2.52 0 4.89.98 6.67 2.77a9.37 9.37 0 0 1 2.76 6.67c0 5.2-4.24 9.43-9.45 9.43zM20.08 3.9A11.32 11.32 0 0 0 12.05.58C5.79.58.7 5.67.7 11.92c0 2 .52 3.95 1.52 5.67L.6 23.5l6.05-1.59a11.3 11.3 0 0 0 5.4 1.38h.01c6.25 0 11.34-5.09 11.34-11.34 0-3.03-1.18-5.88-3.32-8.02z',
+  telegram: 'M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z',
+  email: 'M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z',
+  phone: 'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z',
+  share: 'M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z',
+  dots: 'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  card: 'M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z',
+  paypal: 'M7.08 21.6H3.55a.6.6 0 0 1-.6-.69L5.86 2.5A.93.93 0 0 1 6.78 1.7h6.06c3.95 0 6.17 1.9 5.6 5.28-.6 3.62-3.1 5.4-6.6 5.4H9.98a.9.9 0 0 0-.9.77l-.98 6.18-.12.79a1 1 0 0 1-.9.83zm12.4-14.06c-.05.3-.1.6-.17.92-.95 4.86-4.2 6.54-8.36 6.54h-.62a1.03 1.03 0 0 0-1.02.87l-.86 5.42-.24 1.54a.54.54 0 0 0 .53.62h3.73a.9.9 0 0 0 .89-.76l.04-.19.7-4.46.05-.25a.9.9 0 0 1 .89-.76h.56c3.63 0 6.47-1.47 7.3-5.73.35-1.78.17-3.26-.75-4.31a3.6 3.6 0 0 0-1.03-.8l-.64-.66z',
+  upload: 'M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z',
+  copy: 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z',
+  hourglass: 'M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z',
   tiktok: 'M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z',
 };
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]}"/></svg>`;
@@ -177,6 +191,7 @@ ${chrome !== false ? `<header class="topbar" id="top">
     <div class="bar-end">
       <a class="nav-btn chat-btn" href="/chat">${icon('chat')}<span>${esc(t('Chat'))}</span></a>
       ${accountLink}
+      ${user ? `<button class="nav-btn logout" type="button" data-logout title="${esc(t('Log out'))}" aria-label="${esc(t('Log out'))}">${icon('logout')}</button>` : ''}
       <a class="nav-btn lang" href="/lang/${other}?next=${enc(path)}" title="${other === 'en' ? 'English' : 'العربية'}">${other === 'en' ? 'EN' : 'ع'}</a>
       <button class="nav-btn burger" id="burger" aria-label="${esc(t('Menu'))}">${icon('menu')}</button>
     </div>
@@ -208,18 +223,22 @@ ${scripts}
 // ---------------------------------------------------------------------------
 const ownedLabel = (ctx, owned) => (owned === 'sub' ? ctx.t('Included') : ctx.t('Owned'));
 const ownedOf = (set, id) => set.has(id) && (set.sub ? 'sub' : true);
+const soonBadge = (ctx) => `<span class="badge soon">${icon('hourglass')} ${esc(ctx.t('Coming soon'))}</span>`;
+const soonFoot = (ctx) => `<span class="go soon">${esc(ctx.t('Book your seat'))}</span>`;
 function courseCard(ctx, c, owned) {
+  const soon = c.coming_soon && !owned;
   return `<a class="card" href="/courses/${enc(c.slug)}">
-    <div class="card-img">${img(c.cover, c.title)}${owned ? `<span class="badge ok">${icon(owned === 'sub' ? 'crown' : 'check')} ${esc(ownedLabel(ctx, owned))}</span>` : ''}</div>
+    <div class="card-img">${img(c.cover, c.title)}${owned ? `<span class="badge ok">${icon(owned === 'sub' ? 'crown' : 'check')} ${esc(ownedLabel(ctx, owned))}</span>` : soon ? soonBadge(ctx) : ''}</div>
     <div class="card-body"><h3>${esc(c.title)}</h3>${c.subtitle ? `<p>${esc(c.subtitle)}</p>` : ''}
-      <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Continue watching'))}</span>` : priceHtml(ctx, c)}
+      <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Continue watching'))}</span>` : soon ? soonFoot(ctx) : priceHtml(ctx, c)}
       ${c.lessons_count ? `<span class="meta">${icon('play')} ${esc(ctx.t('{n} lessons', { n: c.lessons_count }))}</span>` : ''}</div></div></a>`;
 }
 function bookCard(ctx, b, owned) {
+  const soon = b.coming_soon && !owned;
   return `<a class="card book" href="/books/${enc(b.slug)}">
-    <div class="card-img tall">${img(b.cover, b.title)}${owned ? `<span class="badge ok">${icon(owned === 'sub' ? 'crown' : 'check')} ${esc(ownedLabel(ctx, owned))}</span>` : ''}</div>
+    <div class="card-img tall">${img(b.cover, b.title)}${owned ? `<span class="badge ok">${icon(owned === 'sub' ? 'crown' : 'check')} ${esc(ownedLabel(ctx, owned))}</span>` : soon ? soonBadge(ctx) : ''}</div>
     <div class="card-body"><h3>${esc(b.title)}</h3>${b.subtitle ? `<p>${esc(b.subtitle)}</p>` : ''}
-      <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Read now'))}</span>` : priceHtml(ctx, b)}</div></div></a>`;
+      <div class="card-foot">${owned ? `<span class="go">${esc(ctx.t('Read now'))}</span>` : soon ? soonFoot(ctx) : priceHtml(ctx, b)}</div></div></a>`;
 }
 function postCard(ctx, p) {
   return `<a class="card post" href="/blog/${enc(p.slug)}">
@@ -397,18 +416,20 @@ function mainAction(ctx, type, item, state) {
     if (item.external_url) return { href: item.external_url, ic: 'book', label: t('Read online'), ext: 1 };
     return null;
   }
-  if (state.pending) return { href: `/chat?order=${state.pending.id}`, ic: 'chat', label: t('Continue in the chat') };
+  if (item.coming_soon) return { href: '#reserve', ic: 'calendar', label: t('Book your seat') };
+  if (state.pending) return { href: `/pay/${state.pending.id}`, ic: 'card', label: t('Complete payment') };
   return { href: loginOr(ctx, `/checkout?type=${type}&id=${item.id}`), ic: 'chat', label: Number(item.price) ? t('Buy now') : t('Get it free') };
 }
 function ctaBar(ctx, type, item, state) {
   const a = mainAction(ctx, type, item, state);
   if (!a) return false;
-  const left = state.owned ? `<div class="owned">${icon('check')} ${esc(ctx.t('You own this'))}</div>` : priceHtml(ctx, item);
+  const left = state.owned ? `<div class="owned">${icon('check')} ${esc(ctx.t('You own this'))}</div>`
+    : item.coming_soon ? `<div class="owned soon">${icon('hourglass')} ${esc(ctx.t('Coming soon'))}</div>` : priceHtml(ctx, item);
   return `<div class="cta-bar">${left}<a class="btn primary lg" href="${esc(a.href)}"${a.ext ? ' target="_blank" rel="noopener"' : ''}>${icon(a.ic)} ${esc(a.label)}</a></div>`;
 }
 function memberHint(ctx, state) {
   if (state.viaSub) return `<div class="member-hint on">${icon('crown')} ${esc(ctx.t('Included in your membership'))}</div>`;
-  if (state.owned || !state.fromMonthly) return '';
+  if (state.owned || !state.fromMonthly || state.soon) return '';
   return `<a class="member-hint" href="/membership">${icon('crown')} <span>${esc(ctx.t('Or get all courses and books with a membership from {price} per month', { price: price(ctx, Math.round(state.fromMonthly)) }))}</span></a>`;
 }
 function buyBox(ctx, type, item, state) {
@@ -420,13 +441,45 @@ function buyBox(ctx, type, item, state) {
         + (item.external_url ? `<a class="btn ghost block" href="${esc(item.external_url)}" target="_blank" rel="noopener">${icon('book')} ${esc(t('Read online'))}</a>` : '');
     return `<div class="buybox"><div class="owned">${icon('check')} ${esc(t('You own this'))}</div>${action}</div>`;
   }
+  if (item.coming_soon) {
+    return `<div class="buybox soon"><div class="soon-tag">${icon('hourglass')} ${esc(t('Coming soon'))}</div>
+      <p class="soon-text">${esc(t('Stay tuned! This content will be available soon.'))}</p>
+      <a class="btn primary block lg" href="#reserve">${icon('calendar')} ${esc(t('Book your seat'))}</a>
+      <p class="note">${esc(t('No payment now. Leave your details and you will be the first to know when it opens.'))}</p></div>`;
+  }
   if (state.pending) {
     return `<div class="buybox">${priceHtml(ctx, item)}<p class="note">${esc(t('Your order #{id} is waiting for payment confirmation.', { id: state.pending.id }))}</p>
-      <a class="btn primary block lg" href="/chat?order=${state.pending.id}">${icon('chat')} ${esc(t('Continue in the chat'))}</a></div>`;
+      <a class="btn primary block lg" href="/pay/${state.pending.id}">${icon('card')} ${esc(t('Complete payment'))}</a></div>`;
   }
+  const viaChat = onlyChat(type);
   return `<div class="buybox">${priceHtml(ctx, item)}
     <a class="btn primary block lg" href="${loginOr(ctx, `/checkout?type=${type}&id=${item.id}`)}">${esc(Number(item.price) ? t('Buy now') : t('Get it free'))}</a>
-    <p class="note">${icon('chat')} ${esc(t('Payment is completed with our team in the chat.'))}</p></div>`;
+    <p class="note">${icon(viaChat ? 'chat' : 'lock')} ${esc(viaChat ? t('Payment is completed with our team in the chat.') : t('Secure payment. Your order is activated as soon as the payment is confirmed.'))}</p></div>`;
+}
+// True when the chat is the only payment method for this kind of product.
+function onlyChat(type) {
+  const m = payments.methodsFor(type);
+  return m.length === 1 && m[0] === 'chat';
+}
+// Seat booking for "coming soon" content: details only, no account and no payment.
+function reserveSection(ctx, type, item) {
+  const { t, user } = ctx;
+  const me = user && user.role === 'client' ? user : {};
+  return `<section class="wrap sec narrow" id="reserve">
+    <form class="form card-form reserve-form" data-api="/api/shop/reserve" data-done="${esc(t('Your seat is booked!'))}">
+      <div class="reserve-head"><span class="reserve-ic">${icon('hourglass')}</span><div><h2>${esc(t('Book your seat'))}</h2>
+        <p class="muted">${esc(t('Stay tuned! This content will be available soon.'))} ${esc(t('No payment now. Leave your details and you will be the first to know when it opens.'))}</p></div></div>
+      <input type="hidden" name="type" value="${type}"><input type="hidden" name="id" value="${item.id}">
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <label>${esc(t('Full name'))}<input name="name" autocomplete="name" required maxlength="100" value="${esc(me.name || '')}"></label>
+      ${phoneField(ctx, { country: me.country, phone: me.phone })}
+      <label>${esc(t('Email (optional)'))}<input name="email" type="email" autocomplete="email" dir="ltr" value="${esc(me.email || '')}"></label>
+      <label>${esc(t('Anything you would like to tell us? (optional)'))}<textarea name="notes" rows="3" maxlength="1000"></textarea></label>
+      <div class="form-error"></div>
+      <button class="btn primary block lg" type="submit">${icon('calendar')} ${esc(t('Book my seat'))}</button>
+      <div class="form-thanks" hidden>${icon('check')}<h3>${esc(t('Your seat is booked!'))}</h3><p class="muted">${esc(t('We will contact you as soon as it is available.'))}</p></div>
+    </form>
+  </section>`;
 }
 
 function course(ctx, c, lessons, state) {
@@ -435,10 +488,11 @@ function course(ctx, c, lessons, state) {
 <section class="detail-hero"><div class="wrap detail-in">
   <div class="detail-img">${img(c.cover, c.title)}</div>
   <div class="detail-text"><a class="crumb" href="/courses">${esc(t('Courses'))}</a><h1>${esc(c.title)}</h1>${c.subtitle ? `<p class="lead">${esc(c.subtitle)}</p>` : ''}
-    <div class="meta-row"><span>${icon('play')} ${esc(t('{n} lessons', { n: lessons.length }))}</span>${ratingSummary(ctx, state.rating)}</div>
-    ${memberHint(ctx, state)}</div>
+    <div class="meta-row">${c.coming_soon && !state.owned ? `<span class="soon-pill">${icon('hourglass')} ${esc(t('Coming soon'))}</span>` : ''}${lessons.length ? `<span>${icon('play')} ${esc(t('{n} lessons', { n: lessons.length }))}</span>` : ''}${ratingSummary(ctx, state.rating)}</div>
+    ${memberHint(ctx, { ...state, soon: c.coming_soon })}</div>
   ${buyBox(ctx, 'course', c, state)}
 </div></section>
+${c.coming_soon && !state.owned ? reserveSection(ctx, 'course', c) : ''}
 <section class="wrap sec two-col">
   <div class="prose">${md(c.description)}</div>
   <div class="curriculum"><h3>${esc(t('Course content'))}</h3>
@@ -492,10 +546,11 @@ function book(ctx, b, state) {
 <section class="detail-hero"><div class="wrap detail-in">
   <div class="detail-img tall">${img(b.cover, b.title)}</div>
   <div class="detail-text"><a class="crumb" href="/books">${esc(t('Books'))}</a><h1>${esc(b.title)}</h1>${b.subtitle ? `<p class="lead">${esc(b.subtitle)}</p>` : ''}
-    <div class="meta-row">${b.pages ? `<span>${icon('book')} ${esc(t('{n} pages', { n: b.pages }))}</span>` : ''}${ratingSummary(ctx, state.rating)}</div>
-    ${memberHint(ctx, state)}</div>
+    <div class="meta-row">${b.coming_soon && !state.owned ? `<span class="soon-pill">${icon('hourglass')} ${esc(t('Coming soon'))}</span>` : ''}${b.pages ? `<span>${icon('book')} ${esc(t('{n} pages', { n: b.pages }))}</span>` : ''}${ratingSummary(ctx, state.rating)}</div>
+    ${memberHint(ctx, { ...state, soon: b.coming_soon })}</div>
   ${buyBox(ctx, 'book', b, state)}
 </div></section>
+${b.coming_soon && !state.owned ? reserveSection(ctx, 'book', b) : ''}
 <section class="wrap sec narrow"><div class="prose">${md(b.description)}</div></section>
 ${commentsSection(ctx, 'book', b.id, state.comments || [], state.rating)}`;
   return layout(ctx, { title: b.title, desc: b.subtitle || plain(b.description), image: b.cover, body, active: 'books', bottom: ctaBar(ctx, 'book', b, state) });
@@ -551,13 +606,86 @@ function bookingForm(ctx, c) {
           <option value="${esc(t('Evening'))}" selected>${esc(t('Evening'))}</option><option value="${esc(t('Any time'))}">${esc(t('Any time'))}</option></select></label>
       </div>
       <label>${esc(t('What would you like to talk about? (optional)'))}<textarea name="notes" rows="4" maxlength="2000"></textarea></label>
-      <div class="paynote">${icon('chat')}<p>${esc(S(ctx, 'payment_note'))}</p></div>
+      ${payHint(ctx, 'consultation')}
       <div class="form-error"></div>
-      <button class="btn primary block lg" type="submit">${icon('chat')} ${esc(t('Continue to payment in the chat'))}</button>
+      <button class="btn primary block lg" type="submit">${payButtonLabel(ctx, 'consultation')}</button>
     </form>
   </div>
 </section>`;
   return layout(ctx, { title: c.title, body, active: 'consult' });
+}
+
+// ---------------------------------------------------------------------------
+// Payment
+// ---------------------------------------------------------------------------
+const METHOD_INFO = {
+  chat: { ic: 'chat', title: 'Pay with our team in the chat', sub: 'We reply with the payment details and activate your order' },
+  paypal: { ic: 'paypal', title: 'PayPal', sub: 'Pay with PayPal, then send us a screenshot of the payment' },
+  gateway: { ic: 'card', title: 'Pay online now (card or PayPal)', sub: 'Your order is activated automatically right after paying' },
+};
+// Short note under the order: the chat note when the chat is the only method, otherwise the list of methods.
+function payHint(ctx, type) {
+  const { t } = ctx;
+  if (onlyChat(type)) return `<div class="paynote">${icon('chat')}<p>${esc(S(ctx, 'payment_note'))}</p></div>`;
+  return `<div class="pay-methods-mini"><span class="muted small">${esc(t('Payment methods'))}:</span>${payments.methodsFor(type).map((m) => `<span class="pm-mini">${icon(METHOD_INFO[m].ic)} ${esc(t(m === 'gateway' ? 'Card' : m === 'paypal' ? 'PayPal' : 'Chat'))}</span>`).join('')}</div>`;
+}
+const payButtonLabel = (ctx, type) => (onlyChat(type) ? `${icon('chat')} ${esc(ctx.t('Continue to payment in the chat'))}` : `${icon('lock')} ${esc(ctx.t('Continue to payment'))}`);
+
+function payPage(ctx, order, d) {
+  const { t } = ctx;
+  const total = money(order.total, order.currency, ctx.lang);
+  const head = `<div class="pay-order"><div><span class="meta">${esc(t('Order number'))} #${order.id}</span>
+      ${order.items.map((i) => `<h2>${esc(i.title)}</h2>`).join('')}</div><div class="pay-total"><span class="meta">${esc(t('Total'))}</span><b>${esc(total)}</b></div></div>`;
+  let inner;
+  if (order.status === 'paid') {
+    inner = `<div class="pay-done">${icon('check')}<h1>${esc(t('Payment confirmed'))}</h1><p class="muted">${esc(t('Your order is active. Enjoy!'))}</p>
+      <a class="btn primary lg" href="/account">${esc(t('Open my account'))}</a></div>${head}`;
+  } else if (order.status === 'cancelled') {
+    inner = `${head}<div class="paynote">${icon('close')}<p>${esc(t('This order was cancelled.'))}</p></div><a class="btn ghost" href="/">${esc(t('Back to home'))}</a>`;
+  } else {
+    const ms = d.methods;
+    const pick = ms.includes(order.method) ? order.method : order.proof ? 'paypal' : ms[0];
+    const proof = order.proof ? `<div class="proof-box">${/\.pdf$/i.test(order.proof.url) ? `<span class="proof-thumb">${icon('article')}</span>` : `<a class="proof-thumb" href="${esc(order.proof.url)}" target="_blank"><img src="${esc(order.proof.url)}" alt=""></a>`}
+        <div><b>${icon('check')} ${esc(t('We received your payment screenshot'))}</b><p class="muted small">${esc(t('Our team is checking it now. You will get a message in the chat as soon as your order is active.'))}</p>
+        <a class="btn small ghost" href="/chat">${icon('chat')} ${esc(t('Open the chat'))}</a></div></div>` : '';
+    const choice = ms.length > 1 ? `<h3 class="pay-h">${esc(t('Choose how to pay'))}</h3><div class="pm-list" role="radiogroup">${ms.map((m) => `<label class="pm ${m === pick ? 'on' : ''}">
+        <input type="radio" name="pm" value="${m}" ${m === pick ? 'checked' : ''}><span class="pm-ic ${m}">${icon(METHOD_INFO[m].ic)}</span>
+        <span class="pm-txt"><b>${esc(t(METHOD_INFO[m].title))}</b><span>${esc(t(METHOD_INFO[m].sub))}</span></span><span class="pm-dot"></span></label>`).join('')}</div>` : '';
+    const panel = (m, html) => (ms.includes(m) ? `<div class="pm-panel" data-pm="${m}" ${m === pick ? '' : 'hidden'}>${html}</div>` : '');
+    const chatPanel = `<div class="paynote">${icon('chat')}<p>${esc(S(ctx, 'payment_note'))}</p></div>
+      <button class="btn primary block lg" data-pay="chat" data-order="${order.id}">${icon('chat')} ${esc(t('Continue to payment in the chat'))}</button>
+      <p class="note center">${esc(t('A message with your order will be ready in the chat — just press send.'))}</p>`;
+    const step = (n, title, body) => `<li class="pp-step"><span class="pp-n">${n}</span><div><b>${esc(title)}</b>${body}</div></li>`;
+    const ppSend = d.paypalLink
+      ? `<p>${esc(t('Press the button. PayPal opens with the amount ready:'))} <b dir="ltr">${esc(total)}</b></p>
+         <a class="btn pp-btn block lg" href="${esc(d.paypalLink)}" target="_blank" rel="noopener">${icon('paypal')} ${esc(t('Pay {amount} with PayPal', { amount: total }))}</a>
+         ${d.paypalEmail ? `<p class="muted small">${esc(t('Or send it to our PayPal email:'))} <b dir="ltr">${esc(d.paypalEmail)}</b> <button type="button" class="linkish" data-copy="${esc(d.paypalEmail)}">${icon('copy')} ${esc(t('Copy'))}</button></p>` : ''}`
+      : `<p>${esc(t('Open PayPal (app or paypal.com) and send exactly {amount} to our PayPal email:', { amount: total }))}</p>
+         <div class="copy-row"><b dir="ltr">${esc(d.paypalEmail)}</b><button type="button" class="btn small ghost" data-copy="${esc(d.paypalEmail)}">${icon('copy')} ${esc(t('Copy'))}</button></div>`;
+    const ppPanel = `${d.paypalNote ? `<div class="paynote">${icon('paypal')}<p>${esc(d.paypalNote)}</p></div>` : ''}
+      <ol class="pp-steps">
+        ${step(1, t('Open PayPal'), ppSend)}
+        ${step(2, t('Send the payment'), `<p>${esc(t('Log in to PayPal (or pay with a card if PayPal offers it), check that the amount is exactly {amount} and press Send / Pay now.', { amount: total }))}</p>
+          <p>${esc(t('If there is a note box, write your order number:'))} <b dir="ltr">#${order.id}</b> <button type="button" class="linkish" data-copy="#${order.id}">${icon('copy')} ${esc(t('Copy'))}</button></p>`)}
+        ${step(3, t('Take a screenshot of the success screen'), `<p>${esc(t('When PayPal shows that the payment is complete ("You sent …" / "Payment complete"), take a screenshot of that screen. The amount, date and transaction ID must be clear.'))}</p>
+          <ul class="shot-keys"><li><b>Android</b> ${esc(t('Power + Volume down'))}</li><li><b>iPhone</b> ${esc(t('Side button + Volume up'))}</li><li><b>Windows</b> ${esc(t('Windows + Shift + S'))}</li><li><b>Mac</b> ${esc(t('Cmd + Shift + 4'))}</li></ul>`)}
+        ${step(4, t('Upload the screenshot here'), `<form class="form proof-form" data-order="${order.id}">
+            <label class="drop"><input type="file" name="file" accept="image/*,application/pdf" required><span class="drop-in">${icon('upload')}<b>${esc(order.proof ? t('Choose another screenshot') : t('Choose the screenshot'))}</b><span class="muted small">${esc(t('Image or PDF'))}</span></span><img class="drop-pv" alt="" hidden></label>
+            <label>${esc(t('Transaction ID (optional)'))}<input name="txn" dir="ltr" maxlength="80" placeholder="e.g. 8AB12345CD678901E"></label>
+            <label>${esc(t('Note (optional)'))}<input name="note" maxlength="500"></label>
+            <div class="form-error"></div>
+            <button class="btn primary block lg" type="submit">${icon('upload')} ${esc(t('Send the screenshot'))}</button></form>`)}
+        ${step(5, t('We confirm and activate your order'), `<p>${esc(t('Our team checks the payment and activates your order, usually within a few hours. You will get a message in the chat.'))}</p>`)}
+      </ol>`;
+    const gwPanel = `<div class="gw-box">${icon('lock')}<div><b>${esc(t('Secure online payment'))}</b><p class="muted small">${esc(t('You will go to PayPal to pay with your PayPal account or a debit/credit card. Your order is activated automatically right after the payment.'))}</p></div></div>
+      ${d.error ? `<div class="form-error">${esc(t('The payment was not completed. Please try again or choose another method.'))}</div>` : ''}
+      <button class="btn primary block lg" data-pay="gateway" data-order="${order.id}">${icon('lock')} ${esc(t('Pay {amount} now', { amount: total }))}</button>
+      <div class="gw-logos"><span>PayPal</span><span>Visa</span><span>Mastercard</span></div>`;
+    inner = `<h1>${esc(t('Complete your payment'))}</h1>${head}${proof}${choice}
+      ${panel('gateway', gwPanel)}${panel('paypal', ppPanel)}${panel('chat', chatPanel)}<div class="form-error" data-pay-err></div>`;
+  }
+  const body = `<section class="wrap narrow sec"><div class="checkout pay">${inner}</div></section>`;
+  return layout(ctx, { title: t('Complete your payment'), body });
 }
 
 function checkout(ctx, type, item) {
@@ -571,12 +699,12 @@ function checkout(ctx, type, item) {
       <div><span class="meta">${esc(kind)}</span><h2>${esc(item.title)}</h2>${priceHtml(ctx, item)}
       ${type === 'plan' ? `<div class="muted small">${esc(t('Access to all courses and books for {n} month(s)', { n: item.months }))}</div>` : ''}</div></div>
     <div class="co-user"><h3>${esc(t('Your details'))}</h3>
-      <div>${icon('user')} ${esc(user.name)}</div><div dir="ltr">${esc(user.email)}</div><div dir="ltr">${esc(countries.format(user.phone, user.country) || '')}</div>
+      <div>${icon('user')} ${esc(user.name)}</div>${user.email ? `<div dir="ltr">${esc(user.email)}</div>` : ''}<div dir="ltr">${esc(countries.format(user.phone, user.country) || '')}</div>
       <a class="muted small" href="/account#profile">${esc(t('Edit my details'))}</a></div>
-    <div class="paynote">${icon('chat')}<p>${esc(S(ctx, 'payment_note'))}</p></div>
+    ${payHint(ctx, type)}
     <div class="form-error"></div>
-    <button class="btn primary block lg" data-buy="${type}" data-id="${item.id}">${icon('chat')} ${esc(t('Continue to payment in the chat'))}</button>
-    <p class="note center">${esc(t('A message with your order will be ready in the chat — just press send.'))}</p>
+    <button class="btn primary block lg" data-buy="${type}" data-id="${item.id}">${payButtonLabel(ctx, type)}</button>
+    ${onlyChat(type) ? `<p class="note center">${esc(t('A message with your order will be ready in the chat — just press send.'))}</p>` : ''}
   </div>
 </section>`;
   return layout(ctx, { title: t('Complete your order'), body });
@@ -604,8 +732,8 @@ function authPage(ctx, mode, q) {
     ${g.id ? `<p class="devcode">${esc(t('Use the same phone number and your previous chats will be linked to your new account.'))}</p>` : ''}
     <form class="form" data-api="/api/auth/register" data-next="${esc(next)}">
       <label>${esc(t('Full name'))}<input name="name" autocomplete="name" required maxlength="100" value="${esc(g.name || '')}"></label>
-      <label>${esc(t('Email'))}<input name="email" type="email" autocomplete="email" required dir="ltr"></label>
       ${phoneField(ctx, { country: g.country, phone: g.phone })}
+      <label>${esc(t('Email (optional)'))}<input name="email" type="email" autocomplete="email" dir="ltr"></label>
       <label>${esc(t('Password'))}<input name="password" type="password" autocomplete="new-password" minlength="6" required dir="ltr"></label>
       ${rememberBox(ctx)}
       <div class="form-error"></div>
@@ -628,6 +756,7 @@ function authPage(ctx, mode, q) {
     inner = `<h1>${esc(t('Reset your password'))}</h1>
     <form class="form" data-api="/api/auth/forgot" data-step="1">
       <p class="muted">${esc(t('Enter your email and we will send you a code.'))}</p>
+      <p class="muted small">${esc(t('No email on your account?'))} <a href="/chat">${esc(t('Message us in the chat and we will help you.'))}</a></p>
       <label>${esc(t('Email'))}<input name="email" type="email" required dir="ltr"></label>
       <div class="form-error"></div>
       <button class="btn primary block lg" type="submit">${esc(t('Send code'))}</button>
@@ -654,7 +783,7 @@ function account(ctx, d) {
   };
   const body = `
 <section class="wrap sec account">
-  <div class="acc-head"><div><h1>${esc(t('Hello, {name}', { name: user.name.split(' ')[0] }))}</h1><p class="muted">${esc(user.email)}</p></div>
+  <div class="acc-head"><div><h1>${esc(t('Hello, {name}', { name: user.name.split(' ')[0] }))}</h1><p class="muted" dir="ltr">${esc(user.email || countries.format(user.phone, user.country) || '')}</p></div>
     <a class="btn primary" href="/chat">${icon('chat')} ${esc(t('Open the chat'))}</a></div>
   ${d.memberUntil ? memberStatus(ctx, d.memberUntil) : `<a class="member-hint" href="/membership">${icon('crown')} <span>${esc(t('Get every course and book with one membership'))}</span></a>`}
 
@@ -684,9 +813,9 @@ function account(ctx, d) {
   </div><div class="tab-sec" data-sec="orders" hidden>
   <h2>${esc(t('My orders'))}</h2>
   ${d.orders.length ? `<div class="list">${d.orders.map((o) => `<div class="li"><div><b>#${o.id}</b> · ${esc(o.items || '')}
-      <div class="muted small">${esc(fmtDate(ctx, o.created_at))} · ${esc(price(ctx, o.total))}</div></div>
-      <div class="li-end"><span class="pill ${esc(o.status)}">${esc(statusLabel[o.status] || o.status)}</span>
-      ${o.status === 'pending' ? `<a class="btn small" href="/chat?order=${o.id}">${esc(t('Pay in chat'))}</a>` : ''}</div></div>`).join('')}</div>`
+      <div class="muted small">${esc(fmtDate(ctx, o.created_at))} · ${esc(money(o.total, o.currency, ctx.lang))}</div></div>
+      <div class="li-end"><span class="pill ${esc(o.status === 'pending' && o.proof ? 'review' : o.status)}">${esc(o.status === 'pending' && o.proof ? t('Under review') : statusLabel[o.status] || o.status)}</span>
+      ${o.status === 'pending' ? `<a class="btn small" href="/pay/${o.id}">${esc(t('Complete payment'))}</a>` : ''}</div></div>`).join('')}</div>`
     : `<p class="muted">${esc(t('No orders yet.'))}</p>`}
 
   </div><div class="tab-sec" data-sec="profile" hidden>
@@ -695,6 +824,7 @@ function account(ctx, d) {
     <form class="form card-form" data-api="/api/auth/profile" data-done="${esc(t('Saved'))}">
       <label>${esc(t('Full name'))}<input name="name" value="${esc(user.name)}" required></label>
       ${phoneField(ctx, { country: user.country, phone: user.phone })}
+      <label>${esc(t('Email (optional)'))}<input name="email" type="email" autocomplete="email" dir="ltr" value="${esc(user.email || '')}"></label>
       <div class="form-error"></div><button class="btn primary" type="submit">${esc(t('Save'))}</button>
     </form>
     <form class="form card-form" data-api="/api/auth/password" data-done="${esc(t('Password changed'))}" data-reset>
@@ -812,6 +942,78 @@ function reviews(ctx, list, rating) {
   return layout(ctx, { title: t('Reviews'), body, active: 'reviews' });
 }
 
+// ---------------------------------------------------------------------------
+// Hidden "link in bio" page (/p/<secret link>) - a standalone page, edited in Admin > Link page.
+// ---------------------------------------------------------------------------
+const LP_SOCIAL_NAMES = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X', whatsapp: 'WhatsApp', telegram: 'Telegram', email: 'Email', phone: 'Phone', website: 'Website' };
+const LP_ICON = { website: 'globe' };
+function linkPage(ctx, d, url) {
+  const site = S(ctx, 'site_name');
+  const logo = settings.get('img_logo');
+  const name = d.name || site;
+  const ext = (u) => (/^(https?:|mailto:|tel:)/i.test(u) ? ' target="_blank" rel="noopener"' : '');
+  const abs = (u) => (/^\//.test(u) ? `${url.origin}${u}` : u);
+  const links = d.links.filter((l) => l.visible);
+  const cover = d.image ? ImgPos.parse(d.image) : null;
+  return `<!doctype html>
+<html lang="${d.dir === 'rtl' ? 'ar' : 'en'}" dir="${d.dir}" data-tone="${settings.isLight() ? 'light' : 'dark'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${esc(name)}</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="${esc(d.bio || '')}">
+<meta property="og:title" content="${esc(name)}"><meta property="og:description" content="${esc(d.bio || '')}">
+${cover ? `<meta property="og:image" content="${esc(abs(cover.src))}">` : ''}
+<meta name="theme-color" content="${settings.theme().bg}">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=El+Messiri:wght@600;700&display=swap" rel="stylesheet">
+<style>${settings.themeCss()}</style>
+<link rel="stylesheet" href="/link.css?v=${VER}">
+</head>
+<body class="lp">
+${cover ? `<div class="lp-backdrop" style="background-image:url('${esc(cover.src)}')"></div>` : '<div class="lp-backdrop plain"></div>'}
+<main class="lp-card">
+  <header class="lp-hero ${cover ? '' : 'no-img'}">
+    ${cover ? pimg(d.image, name, 'fetchpriority="high" decoding="async"') : ''}
+    <div class="lp-fade"></div>
+    ${d.show_logo ? `<a class="lp-chip lp-logo" href="/" aria-label="${esc(site)}">${logo ? pimg(logo, '', 'decoding="async"') : icon('brain')}</a>` : ''}
+    <button class="lp-chip lp-share" type="button" data-share="${esc(url.href)}" data-title="${esc(name)}" aria-label="Share">${icon('share')}</button>
+  </header>
+  <section class="lp-body">
+    <h1>${esc(name)}</h1>
+    ${d.bio ? `<p class="lp-bio">${esc(d.bio)}</p>` : ''}
+    ${d.socials.length ? `<nav class="lp-social">${d.socials.map((x) => `<a href="${esc(x.url)}"${ext(x.url)} aria-label="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}" title="${esc(LP_SOCIAL_NAMES[x.type] || x.type)}">${icon(LP_ICON[x.type] || x.type)}</a>`).join('')}</nav>` : ''}
+    ${d.heading ? `<h2 class="lp-heading">${esc(d.heading)}</h2>` : ''}
+    <div class="lp-links">${links.map((l, i) => `<div class="lp-link ${l.highlight ? 'hl' : ''}" style="--i:${i}">
+      <a class="lp-a" href="${esc(l.url)}"${ext(l.url)}>
+        <span class="lp-thumb">${l.image ? pimg(l.image, '') : icon(/\/chat/.test(l.url) ? 'chat' : 'arrow', /\/chat/.test(l.url) ? '' : 'flip')}</span>
+        <span class="lp-title">${esc(l.title)}</span>
+      </a>
+      <button class="lp-more" type="button" data-share="${esc(abs(l.url))}" data-title="${esc(l.title)}" aria-label="Share">${icon('dots')}</button>
+    </div>`).join('')}</div>
+    <footer class="lp-foot"><a href="/">${esc(site)}</a></footer>
+  </section>
+</main>
+<div class="lp-toast" hidden></div>
+<script>
+(function () {
+  var toast = document.querySelector('.lp-toast');
+  function say(msg) { toast.textContent = msg; toast.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { toast.hidden = true; }, 2200); }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-share]');
+    if (!b) return;
+    var url = b.getAttribute('data-share'); var title = b.getAttribute('data-title') || document.title;
+    if (navigator.share) { navigator.share({ title: title, url: url }).catch(function () {}); return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { say(${JSON.stringify(ctx.t('Link copied'))}); }, function () { prompt('', url); });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
 function empty(ctx, text) { return `<div class="empty">${icon('brain')}<p>${esc(text)}</p></div>`; }
 function notFound(ctx) {
   const { t } = ctx;
@@ -819,5 +1021,5 @@ function notFound(ctx) {
 }
 
 module.exports = {
-  VER, adminShell, chatEntry, membership, reviews, home, courses, course, lessonPage, books, book, blog, post, consultations, bookingForm, checkout, authPage, account, chatPage, notFound, layout,
+  VER, adminShell, chatEntry, payPage, linkPage, membership, reviews, home, courses, course, lessonPage, books, book, blog, post, consultations, bookingForm, checkout, authPage, account, chatPage, notFound, layout,
 };

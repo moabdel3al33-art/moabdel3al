@@ -2,10 +2,11 @@
 const express = require('express');
 const { one, find, byId, insert, set, setOne, col } = require('./db');
 const settings = require('./settings');
-const { now, money, esc, tr } = require('./util');
+const { now, money, esc, tr, limited, isEmail } = require('./util');
 const auth = require('./auth');
 const chat = require('./chat');
 const config = require('./config');
+const payments = require('./payments');
 
 const ITEM_TABLE = { course: 'courses', book: 'books', consultation: 'consult_types', plan: 'plans' };
 const SUB_TYPES = ['course', 'book']; // what a membership unlocks
@@ -88,26 +89,27 @@ function orderDraft(order, user, lang) {
     if (b.notes) lines.push(`  ${t('Notes')}: ${b.notes}`);
   }
   lines.push('', `${t('Order number')}: #${order.id}`, `${t('Total')}: ${money(order.total, order.currency, lang)}`, '',
-    `${t('My details')}:`, `${t('Name')}: ${user.name}`, `${t('Email')}: ${user.email}`, `${t('Phone')}: ${user.phone ? countries.format(user.phone, user.country) : '-'}`, '',
+    `${t('My details')}:`, `${t('Name')}: ${user.name}`, `${t('Email')}: ${user.email || '-'}`, `${t('Phone')}: ${user.phone ? countries.format(user.phone, user.country) : '-'}`, '',
     t('Please send me the payment details.'));
   return lines.join('\n');
 }
 
-// Called by staff after the client has paid: unlocks the products and tells the client.
+// Called by staff after the client has paid (or by the payment gateway, staff = null): unlocks the products and tells the client.
 async function confirmOrder(orderId, staff) {
+  const by = staff ? staff.id : null;
   const order = await orderWithItems(orderId);
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
   if (order.status === 'paid') return order;
-  await setOne('orders', { id: order.id }, { status: 'paid', paid_at: now(), paid_by: staff.id });
+  await setOne('orders', { id: order.id }, { status: 'paid', paid_at: now(), paid_by: by });
   for (const i of order.items) {
     if (i.item_type === 'course' || i.item_type === 'book') {
       const has = await one('entitlements', { user_id: order.user_id, item_type: i.item_type, item_id: i.item_id });
       if (has) await setOne('entitlements', { id: has.id }, { order_id: order.id });
-      else await insert('entitlements', { user_id: order.user_id, item_type: i.item_type, item_id: i.item_id, order_id: order.id, granted_by: staff.id, created_at: now() });
+      else await insert('entitlements', { user_id: order.user_id, item_type: i.item_type, item_id: i.item_id, order_id: order.id, granted_by: by, created_at: now() });
     }
     if (i.item_type === 'plan') {
       const plan = await byId('plans', i.item_id);
-      const until = await grantSubscription(order.user_id, { months: plan ? plan.months : 1, planId: i.item_id, orderId, by: staff.id });
+      const until = await grantSubscription(order.user_id, { months: plan ? plan.months : 1, planId: i.item_id, orderId, by });
       await chat.systemMessage(order.user_id, chat.sys('sub', { title: i.title, until }));
     }
   }
@@ -153,10 +155,11 @@ router.post('/orders', requireAccount, wrap(async (req, res) => {
   if (!['course', 'book', 'plan'].includes(type)) return fail(res, 400, t('Invalid item'));
   const item = await loadItem(type, req.body.id);
   if (!item || !item.published) return fail(res, 404, t('This item is not available'));
+  if (item.coming_soon) return fail(res, 400, t('Stay tuned! This content will be available soon.'));
   if (type !== 'plan' && await hasAccess(req.user, type, item.id)) return fail(res, 400, t('You already own this'));
   const existing = await pendingOrderFor(req.user, type, item.id);
   const orderId = existing ? existing.id : await createOrder(req.user, [{ type, id: item.id, title: item.title, price: item.price }]);
-  res.json({ ok: true, orderId, redirect: `/chat?order=${orderId}` });
+  res.json({ ok: true, orderId, redirect: payments.nextUrl(orderId, type) });
 }));
 
 router.post('/bookings', requireAccount, wrap(async (req, res) => {
@@ -169,7 +172,31 @@ router.post('/bookings', requireAccount, wrap(async (req, res) => {
   if (!date) return fail(res, 400, t('Please choose a preferred date'));
   const orderId = await createOrder(req.user, [{ type: 'consultation', id: type.id, title: type.title, price: type.price }]);
   await insert('bookings', { user_id: req.user.id, type_id: type.id, order_id: orderId, preferred_date: date, preferred_time: time, notes, status: 'pending_payment', scheduled_at: null, meeting_link: null, admin_note: null, created_at: now() });
-  res.json({ ok: true, orderId, redirect: `/chat?order=${orderId}` });
+  res.json({ ok: true, orderId, redirect: payments.nextUrl(orderId, 'consultation') });
+}));
+
+// "Coming soon" courses and books: visitors book a seat with their details only (no account, no payment).
+router.post('/reserve', wrap(async (req, res) => {
+  const t = req.t;
+  if (String(req.body.website || '')) return res.json({ ok: true }); // hidden field only bots fill in
+  if (limited(`reserve:${req.ip}`, 15, 3600e3)) return fail(res, 429, t('Too many attempts. Please try again later.'));
+  const type = req.body.type === 'book' ? 'book' : 'course';
+  const item = await loadItem(type, req.body.id);
+  if (!item || !item.published) return fail(res, 404, t('This item is not available'));
+  const name = String(req.body.name || '').trim().slice(0, 100);
+  if (name.length < 2) return fail(res, 400, t('Please enter your full name'));
+  const p = countries.normalize(req.body.country, req.body.phone);
+  if (!p) return fail(res, 400, t('Please enter a valid phone number'));
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 200) || null;
+  if (email && !isEmail(email)) return fail(res, 400, t('Please enter a valid email'));
+  const notes = String(req.body.notes || '').trim().slice(0, 1000) || null;
+  const row = { item_type: type, item_id: item.id, title: item.title, user_id: req.user && req.user.role === 'client' ? req.user.id : null,
+    name, phone: p.e164, country: p.country, email, notes, updated_at: now() };
+  const same = await one('reservations', { item_type: type, item_id: item.id, phone: p.e164 });
+  if (same) await setOne('reservations', { id: same.id }, row);
+  else await insert('reservations', { ...row, status: 'new', created_at: now() });
+  chat.staffEmit('reservations:changed');
+  res.json({ ok: true });
 }));
 
 // Reminds members in the chat 3 days before their membership ends.
@@ -186,6 +213,6 @@ setInterval(() => remindEndingSubs().catch((e) => console.error('reminders', e.m
 setTimeout(() => remindEndingSubs().catch(() => {}), 20000).unref();
 
 module.exports = {
-  activeSub, subEnd, grantSubscription, addMonths,
+  createOrder, activeSub, subEnd, grantSubscription, addMonths,
   router, loadItem, hasAccess, ownedIds, pendingOrderFor, orderWithItems, orderDraft, confirmOrder, cancelOrder, ITEM_TABLE,
 };

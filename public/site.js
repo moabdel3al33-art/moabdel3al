@@ -55,6 +55,13 @@
           return;
         }
         if (data.redirect) { location.href = data.redirect; return; }
+        const thanks = form.querySelector('.form-thanks');
+        if (thanks) { // replace the form with its "thank you" message
+          [...form.children].forEach((c) => { if (c !== thanks) c.hidden = true; });
+          thanks.hidden = false;
+          thanks.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          return;
+        }
         if (form.dataset.done) { toast(form.dataset.done); if (form.hasAttribute('data-reset')) form.reset(); btn.disabled = false; return; }
         location.href = next || (data.staff ? '/admin' : '/account');
       } catch (ex) {
@@ -90,6 +97,59 @@
       location.href = '/';
     }
   });
+
+  // ---- Payment page ----
+  document.querySelectorAll('input[name=pm]').forEach((r) => {
+    r.addEventListener('change', () => {
+      document.querySelectorAll('.pm').forEach((l) => l.classList.toggle('on', l.contains(r) ? r.checked : false));
+      document.querySelectorAll('.pm-panel').forEach((p) => { p.hidden = p.dataset.pm !== r.value; });
+    });
+  });
+  document.addEventListener('click', async (e) => {
+    const copy = e.target.closest('[data-copy]');
+    if (copy) {
+      try { await navigator.clipboard.writeText(copy.dataset.copy); toast(t('Copied')); } catch (ex) { prompt('', copy.dataset.copy); }
+      return;
+    }
+    const pay = e.target.closest('[data-pay]');
+    if (pay) {
+      pay.disabled = true;
+      const err = document.querySelector('[data-pay-err]');
+      try {
+        const d = await api(`/api/pay/${pay.dataset.order}/${pay.dataset.pay}`);
+        location.href = d.redirect;
+      } catch (ex) { if (err) err.textContent = ex.message; else toast(ex.message); pay.disabled = false; }
+    }
+  });
+  const proofForm = document.querySelector('.proof-form');
+  if (proofForm) {
+    const file = proofForm.querySelector('input[type=file]');
+    const pv = proofForm.querySelector('.drop-pv');
+    file.addEventListener('change', () => {
+      const f = file.files[0];
+      proofForm.querySelector('.drop').classList.toggle('has', !!f);
+      if (f && /^image\//.test(f.type)) { pv.src = URL.createObjectURL(f); pv.hidden = false; } else pv.hidden = true;
+      if (f) proofForm.querySelector('.drop-in b').textContent = f.name;
+    });
+    proofForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = proofForm.querySelector('[type=submit]');
+      const err = proofForm.querySelector('.form-error');
+      err.textContent = '';
+      const f = file.files[0];
+      if (!f) { err.textContent = t('Please upload the screenshot of the payment'); return; }
+      btn.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', f, f.name);
+        const up = await fetch('/api/upload', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
+        const u = await up.json().catch(() => ({}));
+        if (!up.ok) throw new Error(u.error || t('Upload failed'));
+        await api(`/api/pay/${proofForm.dataset.order}/proof`, { url: u.url, txn: proofForm.txn.value, note: proofForm.note.value });
+        location.reload();
+      } catch (ex) { err.textContent = ex.message; btn.disabled = false; }
+    });
+  }
 
   // ---- Bottom sheet ("More" menu on phones) ----
   function closeSheets() {

@@ -307,3 +307,44 @@ body.admin-body .btn:not(.ghost):not(.green):not(.danger) {
 /* palette groups on the Colours page */
 .pal-group { font-weight: 800; margin: 14px 0 8px; }
 .pal-group:first-of-type { margin-top: 4px; }
+
+/* ---------- Payments ---------- */
+.pm-table td, .pm-table th { text-align: center; }
+.pm-table td:first-child, .pm-table th:first-child { text-align: start; }
+.pm-help { margin: 0 0 10px; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.howto { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); }
+.howto summary { cursor: pointer; font-weight: 700; }
+.howto ol, .howto-list { margin: 8px 0 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+
+/* ---------- Orders: PayPal screenshots ---------- */
+.proof-th { width: 56px; height: 72px; border-radius: 8px; overflow: hidden; flex: none; display: grid; place-items: center; background: var(--surface-2); font-weight: 800; font-size: 12px; border: 1px solid var(--line); }
+.proof-th img { width: 100%; height: 100%; object-fit: cover; }
+.lst .it.has-proof { background: color-mix(in srgb, #5aa0ff 7%, transparent); }
+
+/* ---------- Link page editor ---------- */
+.lp-admin { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+.lp-preview { position: sticky; top: 12px; }
+.lp-preview .phone { padding: 14px; display: flex; justify-content: center; }
+.lp-preview iframe { width: 340px; max-width: 100%; height: 700px; border: 8px solid #111; border-radius: 36px; background: #000; box-shadow: 0 20px 50px -25px rgba(0, 0, 0, .7); }
+@media (max-width: 1150px) { .lp-admin { grid-template-columns: 1fr; } .lp-preview { position: static; } }
+.slug-row { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 0 0 0 12px; background: var(--c-bg); overflow: hidden; }
+.slug-row span { white-space: nowrap; font-size: 14px; }
+.slug-row input { flex: 1; min-width: 80px; border: 0 !important; background: transparent !important; padding: 10px 12px 10px 0 !important; font-weight: 700; }
+.lp-rows { display: flex; flex-direction: column; gap: 10px; }
+.lp-row { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--c-bg); flex-wrap: wrap; }
+.lp-row select, .lp-row input:not([type=checkbox]) { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--c-surface); color: var(--c-text); font: inherit; }
+.soc-row input[data-f=url] { flex: 1; min-width: 180px; }
+.lp-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); flex: none; }
+.lp-ic .i { width: 20px; height: 20px; }
+.link-row { align-items: flex-start; }
+.link-row.off { opacity: .55; }
+.lr-img { width: 150px; flex: none; }
+.lr-img .fld > label { display: none; }
+.lr-img .imgfield .pv { width: 96px; margin: 0 auto 6px; }
+.lr-img .imgfield .btns { justify-content: center; }
+.lr-main { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.lr-l { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.lr-side { display: flex; flex-direction: column; gap: 4px; }
+.sticky-save { position: sticky; bottom: 0; z-index: 3; padding: 12px 0; background: linear-gradient(to top, var(--c-bg) 70%, transparent); }
+@media (max-width: 600px) { .lr-img { width: 100%; } .lr-side { flex-direction: row; } }
+.note-warn { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; background: rgba(255, 179, 71, .14); color: #e09a2e; }

@@ -25,7 +25,8 @@ const PALETTES = [
 
 const DEFAULTS = {
   theme: JSON.stringify(PALETTES[0]),
-  currency: 'EGP',
+  currency: 'USD',
+  currency_usd_done: '',
   site_name_ar: 'محمد عبد العال',
   site_name_en: 'Mohamed Abdel3al',
   tagline_ar: 'افهم العقل… قبل أن يُستخدم ضدك',
@@ -38,8 +39,19 @@ const DEFAULTS = {
   about_title_en: 'Who is Mohamed Abdel3al?',
   about_text_ar: 'صانع محتوى متخصص في علم النفس المظلم والسلوك الإنساني. يقدّم المعرفة بأسلوب مباشر وعملي يتابعه مئات الآلاف على السوشيال ميديا.',
   about_text_en: 'A content creator specialised in dark psychology and human behaviour, followed by hundreds of thousands of people for his direct and practical style.',
-  payment_note_ar: 'بعد إرسال طلبك في الشات، سيرد عليك فريقنا بطرق الدفع المتاحة (فودافون كاش، إنستاباي، تحويل بنكي). بمجرد تأكيد الدفع يتم تفعيل طلبك فوراً.',
-  payment_note_en: 'After you send your order in the chat, our team will reply with the available payment methods (Vodafone Cash, InstaPay, bank transfer). Your order is activated as soon as the payment is confirmed.',
+  payment_note_ar: 'بعد إرسال طلبك في الشات، سيرد عليك فريقنا بطرق الدفع المتاحة. بمجرد تأكيد الدفع يتم تفعيل طلبك فوراً.',
+  payment_note_en: 'After you send your order in the chat, our team will reply with the available payment methods. Your order is activated as soon as the payment is confirmed.',
+  // ---- Payment methods: which ones each kind of product offers (comma list of chat, paypal, gateway) ----
+  pay_course: 'chat',
+  pay_book: 'chat',
+  pay_plan: 'chat',
+  pay_consult: 'chat',
+  paypal_me: '',
+  paypal_email: '',
+  paypal_note_ar: '',
+  paypal_note_en: '',
+  // ---- Hidden "link in bio" page (JSON, edited in Admin > Link page) ----
+  linkpage: '',
   img_logo: '',
   img_hero: '',
   img_about: '',
@@ -93,4 +105,17 @@ function themeCss(t = theme()) {
 }
 
 const isLight = (t = theme()) => luminance(t.bg) > 0.5;
-module.exports = { PALETTES, DEFAULTS, load, all, get, save, theme, themeCss, isLight, luminance, HEX };
+
+// One-time changes for databases created by older versions.
+const OLD_NOTES = {
+  payment_note_ar: 'بعد إرسال طلبك في الشات، سيرد عليك فريقنا بطرق الدفع المتاحة (فودافون كاش، إنستاباي، تحويل بنكي). بمجرد تأكيد الدفع يتم تفعيل طلبك فوراً.',
+  payment_note_en: 'After you send your order in the chat, our team will reply with the available payment methods (Vodafone Cash, InstaPay, bank transfer). Your order is activated as soon as the payment is confirmed.',
+};
+async function migrate() {
+  if (cache.currency_usd_done) return;
+  const values = { currency: 'USD', currency_usd_done: '1' };
+  for (const [k, old] of Object.entries(OLD_NOTES)) if (cache[k] === old) values[k] = DEFAULTS[k];
+  await save(values);
+}
+
+module.exports = { PALETTES, DEFAULTS, load, all, get, save, migrate, theme, themeCss, isLight, luminance, HEX };

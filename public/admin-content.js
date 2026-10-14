@@ -12,25 +12,27 @@
   // Definitions
   // ---------------------------------------------------------------------------
   const PUBLISH = { k: 'published', l: 'Visible on the website', type: 'check' };
+  const SOON = { k: 'coming_soon', l: 'Coming soon (visitors book a seat, no payment)', type: 'check', hint: 'Shows "Stay tuned! This content will be available soon." and a "Book your seat" form instead of Buy.' };
+  const statusPill = (r) => (r.coming_soon ? `${yes(r.published)} <span class="pill warn">${esc(T('Coming soon'))}</span>` : yes(r.published));
   const SORT = { k: 'sort', l: 'Order (smaller number shows first)', type: 'number' };
   const DEFS = {
     courses: {
       res: 'courses', one: 'Course', add: 'Add course', site: (r) => `/courses/${encodeURIComponent(r.slug)}`,
       cols: [['', (r) => thumb(r.cover)], ['Title', (r) => `<b>${esc(r.title)}</b>`], ['Price', (r) => esc(money(r.price))],
-        ['Lessons', (r) => r.lessons_count], ['Students', (r) => r.students], ['Status', (r) => yes(r.published)]],
+        ['Lessons', (r) => r.lessons_count], ['Students', (r) => r.students], ['Status', statusPill]],
       fields: [
         { k: 'title', l: 'Title', req: 1, full: 1 }, { k: 'subtitle', l: 'Short description (one line)', full: 1 },
         { k: 'price', l: 'Price', type: 'number', hint: 'Put 0 to make it free' }, { k: 'old_price', l: 'Old price (optional, shown crossed out)', type: 'number' },
         { k: 'cover', l: 'Cover image', type: 'image', aspects: ['16/10', '1/1'] },
         { k: 'description', l: 'Full description', type: 'md' },
-        SORT, PUBLISH,
+        SORT, PUBLISH, SOON,
       ],
     },
     books: {
       res: 'books', one: 'Book', add: 'Add book', site: (r) => `/books/${encodeURIComponent(r.slug)}`,
       cols: [['', (r) => thumb(r.cover, 1)], ['Title', (r) => `<b>${esc(r.title)}</b>`], ['Price', (r) => esc(money(r.price))],
         ['File', (r) => (r.file_path ? `<span class="pill ok">PDF</span>` : r.external_url ? `<span class="pill">${esc(T('Link'))}</span>` : `<span class="pill bad">${esc(T('Missing'))}</span>`)],
-        ['Buyers', (r) => r.owners], ['Status', (r) => yes(r.published)]],
+        ['Buyers', (r) => r.owners], ['Status', statusPill]],
       fields: [
         { k: 'title', l: 'Title', req: 1, full: 1 }, { k: 'subtitle', l: 'Short description (one line)', full: 1 },
         { k: 'price', l: 'Price', type: 'number', hint: 'Put 0 to make it free' }, { k: 'old_price', l: 'Old price (optional, shown crossed out)', type: 'number' },
@@ -39,7 +41,7 @@
         { k: 'file', l: 'Book file (PDF) - only buyers can download it', type: 'privatefile' },
         { k: 'external_url', l: 'Or a link to read it online (optional)', type: 'url', full: 1 },
         { k: 'description', l: 'Full description', type: 'md' },
-        SORT, PUBLISH,
+        SORT, PUBLISH, SOON,
       ],
     },
     posts: {
@@ -249,7 +251,6 @@
     ['Home page - top section', [...both('hero_title', 'Big title'), ...both('hero_text', 'Text under the title', 'textarea'), { k: 'img_hero', l: 'Main photo of Mohamed', type: 'image', aspects: ['4/5', '1/1'], hint: 'Large on computers (first frame), wider on phones (second frame).' }]],
     ['About section', [...both('about_title', 'Title'), ...both('about_text', 'Text', 'textarea'), { k: 'img_about', l: 'Photo', type: 'image', aspects: ['1/1'], round: true }]],
     ['Page background images', ['img_courses', 'img_books', 'img_blog', 'img_consult'].map((k, i) => ({ k, l: ['Courses page', 'Books page', 'Blog page', 'Consultations page'][i], type: 'image', aspects: ['16/5', '16/9'] }))],
-    ['Payment instructions (shown before ordering)', both('payment_note', 'Text', 'textarea')],
     ['Social media accounts', [
       { k: 'social_facebook', l: 'Facebook page link', type: 'url' }, { k: 'social_tiktok', l: 'TikTok account link', type: 'url' },
       { k: 'social_youtube', l: 'YouTube channel link', type: 'url', hint: 'Used to show the latest videos automatically' }, { k: 'social_instagram', l: 'Instagram account link', type: 'url' }]],
@@ -259,13 +260,12 @@
     const canSettings = ADM.can('settings');
     el.innerHTML = `<p class="muted" style="margin-top:0">${esc(T('Change the texts and pictures that appear on the website. Images can be uploaded or chosen from the library.'))}</p>
       ${SITE_GROUPS.map(([g, fields]) => `<div class="panel"><div class="panel-head"><h3>${esc(T(g))}</h3></div><div class="panel-body"><div class="fgrid">${fields.map((f) => fieldHtml(f, values[f.k])).join('')}</div></div></div>`).join('')}
-      ${canSettings ? `<div class="panel"><div class="panel-head"><h3>${esc(T('Currency'))}</h3></div><div class="panel-body"><div class="fgrid">${fieldHtml({ k: 'currency', l: 'Currency', type: 'select', options: [['EGP', 'Egyptian pound (EGP)'], ['USD', 'US dollar (USD)'], ['SAR', 'Saudi riyal (SAR)'], ['AED', 'UAE dirham (AED)']] }, values.currency)}</div></div></div>` : ''}
+      ${canSettings ? `<div class="panel"><div class="panel-body muted">${esc(T('Currency, payment methods and payment instructions are in Settings > Payments.'))} <a class="btn small ghost" href="#payments">${esc(T('Open'))}</a></div></div>` : ''}
       <div class="form-actions"><button class="btn" id="save">${esc(T('Save changes'))}</button><a class="btn ghost" href="/" target="_blank">${ic('external', 'sm')} ${esc(T('View website'))}</a><span class="err" id="err"></span></div>`;
     bindFields(el);
     el.querySelector('#save').onclick = async () => {
       try {
         const r = await put('/api/admin/settings', { values: collect(el) });
-        ADM.currency = r.values.currency;
         toast(T('Saved'));
       } catch (e) { el.querySelector('#err').textContent = e.message; }
     };
@@ -321,5 +321,207 @@
       } catch (e) { toast(e.message); }
     };
     apply();
+  };
+  // ---------------------------------------------------------------------------
+  // Payments: which methods each place offers, PayPal details, online payment status, currency
+  // ---------------------------------------------------------------------------
+  const PLACES = [['pay_course', 'Courses'], ['pay_book', 'Books'], ['pay_plan', 'Membership plans'], ['pay_consult', 'Consultations']];
+  const PAY_METHODS = [
+    ['chat', 'Chat with the team', 'The order is sent in the chat and your team replies with the payment details.'],
+    ['paypal', 'PayPal + screenshot', 'The client pays with PayPal, then uploads a screenshot of the payment. You check it and press "Confirm payment".'],
+    ['gateway', 'Online payment (automatic)', 'PayPal Checkout: card or PayPal account. The order is activated by itself right after paying.'],
+  ];
+  ADM.views.payments = async (el) => {
+    const { values, payments: ps } = await api('/api/admin/settings');
+    const on = (k, m) => String(values[k] || 'chat').split(',').includes(m);
+    const ppReady = !!(values.paypal_me || values.paypal_email);
+    el.innerHTML = `<p class="muted" style="margin-top:0">${esc(T('Choose how clients pay in each place. When you tick more than one method, the client chooses on the payment page.'))}</p>
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Payment method in each place'))}</h3></div>
+        <div class="table-wrap"><table class="tbl pm-table"><thead><tr><th></th>${PAY_METHODS.map(([m, l]) => `<th>${esc(T(l))}</th>`).join('')}</tr></thead>
+        <tbody>${PLACES.map(([k, l]) => `<tr><td><b>${esc(T(l))}</b></td>${PAY_METHODS.map(([m]) => `<td><label class="switch"><input type="checkbox" data-place="${k}" value="${m}" ${on(k, m) ? 'checked' : ''}></label></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        <div class="panel-body"><ul class="pm-help">${PAY_METHODS.map(([m, l, h]) => `<li><b>${esc(T(l))}:</b> ${esc(T(h))}</li>`).join('')}</ul>
+          ${!ppReady ? `<div class="note-warn">${esc(T('PayPal is not set up yet: add your PayPal.me link or PayPal email below. Until then it is not shown to clients.'))}</div>` : ''}
+          ${!ps.gatewayReady ? `<div class="note-warn">${esc(T('Online payment is not set up yet (see below). Until then it is not shown to clients.'))}</div>` : ''}</div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${ic('paypal')} PayPal</h3></div><div class="panel-body">
+        <div class="fgrid">
+          ${fieldHtml({ k: 'paypal_me', l: 'PayPal.me link or username', ltr: 1, hint: 'For example paypal.me/YourName. Clients get a button that opens PayPal with the exact amount filled in.' }, values.paypal_me)}
+          ${fieldHtml({ k: 'paypal_email', l: 'PayPal email (optional)', type: 'email', hint: 'Shown so clients can also send the money to this email.' }, values.paypal_email)}
+          ${fieldHtml({ k: 'paypal_note_ar', l: 'Extra note for PayPal payments (Arabic)', type: 'textarea', rows: 2 }, values.paypal_note_ar)}
+          ${fieldHtml({ k: 'paypal_note_en', l: 'Extra note for PayPal payments (English)', type: 'textarea', rows: 2, ltr: 1 }, values.paypal_note_en)}
+        </div>
+        <details class="howto"><summary>${esc(T('What the client sees, step by step'))}</summary><ol>
+          <li>${esc(T('Presses Buy, then chooses PayPal on the payment page.'))}</li>
+          <li>${esc(T('Presses "Pay with PayPal": PayPal opens with the amount ready (or copies your PayPal email).'))}</li>
+          <li>${esc(T('Sends the payment and writes the order number in the note.'))}</li>
+          <li>${esc(T('Takes a screenshot of the PayPal success screen (the page shows how on every device).'))}</li>
+          <li>${esc(T('Uploads the screenshot on the payment page. It appears in your Inbox and in Orders & payments marked "Screenshot received".'))}</li>
+          <li>${esc(T('You check the money arrived in your PayPal account, then press "Confirm payment". The client gets access straight away and is told in the chat.'))}</li>
+        </ol></details></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${ic('card')} ${esc(T('Online payment (PayPal Checkout)'))}</h3>
+        <span class="pill ${ps.gatewayReady ? 'ok' : 'warn'}">${esc(ps.gatewayReady ? T('Connected ({mode})', { mode: ps.gatewayMode }) : T('Not set up'))}</span></div><div class="panel-body">
+        <p style="margin-top:0">${esc(T('Clients pay by card or PayPal on PayPal\'s secure page and the order is activated automatically. To turn it on:'))}</p>
+        <ol class="howto-list">
+          <li>${esc(T('Open developer.paypal.com and log in with your PayPal Business account.'))}</li>
+          <li>${esc(T('Apps & Credentials > switch to "Live" > Create App.'))}</li>
+          <li>${esc(T('Copy the Client ID and the Secret.'))}</li>
+          <li>${esc(T('On Railway > Variables add: PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_MODE=live. The server restarts by itself.'))}</li>
+          <li>${esc(T('Come back here: it shows "Connected". Then tick "Online payment" above.'))}</li>
+        </ol>
+        <p class="muted small">${esc(T('To test first without real money, use the Sandbox keys and PAYPAL_MODE=sandbox.'))}</p></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${ic('chat')} ${esc(T('Chat payment instructions'))}</h3></div><div class="panel-body"><div class="fgrid">
+        ${fieldHtml({ k: 'payment_note_ar', l: 'Text (Arabic)', type: 'textarea' }, values.payment_note_ar)}
+        ${fieldHtml({ k: 'payment_note_en', l: 'Text (English)', type: 'textarea', ltr: 1 }, values.payment_note_en)}</div></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Currency'))}</h3></div><div class="panel-body"><div class="fgrid">
+        ${fieldHtml({ k: 'currency', l: 'Currency', type: 'select', options: [['USD', 'US dollar (USD)'], ['EUR', 'Euro (EUR)'], ['GBP', 'British pound (GBP)'], ['EGP', 'Egyptian pound (EGP)'], ['SAR', 'Saudi riyal (SAR)'], ['AED', 'UAE dirham (AED)']] }, values.currency)}
+        <div class="fld"><span class="lbl">&nbsp;</span><div class="hint">${esc(T('PayPal works with USD, EUR and GBP. Prices are not converted: update them in each course, book, plan and consultation.'))}</div></div></div></div></div>
+
+      <div class="form-actions"><button class="btn" id="save">${esc(T('Save changes'))}</button><span class="err" id="err"></span></div>`;
+    el.querySelector('#save').onclick = async () => {
+      const err = el.querySelector('#err');
+      err.textContent = '';
+      const body = collect(el);
+      for (const [k, l] of PLACES) {
+        const list = [...el.querySelectorAll(`[data-place="${k}"]:checked`)].map((c) => c.value);
+        if (!list.length) { err.textContent = T('Choose at least one payment method for: {place}', { place: T(l) }); return; }
+        body[k] = list.join(',');
+      }
+      try {
+        const r = await put('/api/admin/settings', { values: body });
+        ADM.currency = r.values.currency;
+        toast(T('Saved'));
+        ADM.views.payments(el);
+      } catch (e) { err.textContent = e.message; }
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Link page: the hidden "link in bio" page (like Linktree) at /p/<secret link>
+  // ---------------------------------------------------------------------------
+  const SOCIAL_TYPES = [['youtube', 'YouTube'], ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['facebook', 'Facebook'], ['linkedin', 'LinkedIn'], ['x', 'X (Twitter)'],
+    ['whatsapp', 'WhatsApp'], ['telegram', 'Telegram'], ['email', 'Email'], ['phone', 'Phone'], ['website', 'Website']];
+  const SITE_PAGES = [['/chat', 'Chat'], ['/courses', 'Courses'], ['/books', 'Books'], ['/consultations', 'Consultations'], ['/membership', 'Membership'], ['/blog', 'Blog'], ['/reviews', 'Reviews'], ['/', 'Home']];
+  const randSlug = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(16).padStart(2, '0')).join('');
+
+  ADM.views.linkpage = async (el) => {
+    const [d, cat] = await Promise.all([api('/api/admin/linkpage'), api('/api/admin/catalog').catch(() => ({ courses: [], books: [] }))]);
+    const pageUrl = (slug) => `${location.origin}/p/${slug}`;
+    const pickOptions = `<option value="">${esc(T('Choose a page of the website…'))}</option>
+      <optgroup label="${esc(T('Sections'))}">${SITE_PAGES.map(([u, l]) => `<option value="${esc(u)}" data-title="${esc(T(l))}">${esc(T(l))}</option>`).join('')}</optgroup>
+      ${cat.courses.length ? `<optgroup label="${esc(T('Courses'))}">${cat.courses.map((c) => `<option value="/courses/${esc(encodeURIComponent(c.slug))}" data-title="${esc(c.title)}" data-img="${esc(c.cover || '')}">${esc(c.title)}</option>`).join('')}</optgroup>` : ''}
+      ${cat.books.length ? `<optgroup label="${esc(T('Books'))}">${cat.books.map((b) => `<option value="/books/${esc(encodeURIComponent(b.slug))}" data-title="${esc(T('Book'))} «${esc(b.title)}»" data-img="${esc(b.cover || '')}">${esc(b.title)}</option>`).join('')}</optgroup>` : ''}`;
+    const moveBtns = `<button type="button" class="icon-btn" data-mv="-1" title="${esc(T('Move up'))}">${ic('up')}</button><button type="button" class="icon-btn" data-mv="1" title="${esc(T('Move down'))}" style="transform:rotate(180deg)">${ic('up')}</button>
+      <button type="button" class="icon-btn" data-rm title="${esc(T('Delete'))}" style="color:#ff6b81">${ic('trash')}</button>`;
+    const socRow = (x = { type: 'instagram', url: '' }) => `<div class="lp-row soc-row" data-row>
+      <span class="lp-ic">${ic(x.type === 'website' ? 'globe' : x.type)}</span>
+      <select data-f="type">${SOCIAL_TYPES.map(([v, l]) => `<option value="${v}" ${v === x.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      <input data-f="url" dir="ltr" value="${esc(x.url)}" placeholder="https://…">${moveBtns}</div>`;
+    const linkRow = (l = { title: '', url: '', image: '', visible: true }) => `<div class="lp-row link-row ${l.visible ? '' : 'off'}" data-row data-id="${esc(l.id || '')}">
+      <div class="lr-img">${fieldHtml({ k: 'image', l: 'Picture', type: 'image', aspects: ['1/1'], round: true }, l.image)}</div>
+      <div class="lr-main">
+        <label class="lr-l">${esc(T('Button text'))}<input data-f="title" value="${esc(l.title)}" maxlength="160"></label>
+        <label class="lr-l">${esc(T('Link'))}<input data-f="url" dir="ltr" value="${esc(l.url)}" placeholder="/courses  ·  https://…"></label>
+        <select data-pick>${pickOptions}</select>
+        <div class="row"><label class="switch"><input type="checkbox" data-f="visible" ${l.visible ? 'checked' : ''}> ${esc(T('Visible'))}</label>
+          <label class="switch"><input type="checkbox" data-f="highlight" ${l.highlight ? 'checked' : ''}> ${esc(T('Highlight (gold)'))}</label></div>
+      </div>
+      <div class="lr-side">${moveBtns}</div></div>`;
+
+    ADM.setTitle(T('Link page'), `<a class="btn ghost" href="${esc(pageUrl(d.slug))}" target="_blank">${ic('external', 'sm')} ${esc(T('Open the page'))}</a>`);
+    el.innerHTML = `<div class="lp-admin"><div class="lp-form">
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Secret link'))}</h3></div><div class="panel-body">
+        <p class="muted small" style="margin-top:0">${esc(T('This page is not linked anywhere on the website and is hidden from Google. Only people who have the link can open it. Put it in your Instagram / TikTok bio.'))}</p>
+        <div class="fgrid" id="lpTop">
+          ${fieldHtml({ k: 'enabled', l: 'Page is on', type: 'check' }, d.enabled)}
+          <div class="fld full"><label>${esc(T('Link'))}</label><div class="slug-row" dir="ltr"><span class="muted">${esc(location.origin)}/p/</span><input data-k="slug" value="${esc(d.slug)}" maxlength="60"></div>
+            <div class="row" style="margin-top:8px"><button type="button" class="btn small" id="copyUrl">${ic('copy')} ${esc(T('Copy link'))}</button>
+            <button type="button" class="btn small ghost" id="newSlug">${ic('refresh', 'sm')} ${esc(T('New secret link'))}</button></div>
+            <div class="hint">${esc(T('Changing the link stops the old one from working. Use English letters, numbers and dashes.'))}</div></div>
+        </div></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Photo, name and text'))}</h3></div><div class="panel-body"><div class="fgrid" id="lpProfile">
+        ${fieldHtml({ k: 'image', l: 'Main photo (its bottom fades into the page)', type: 'image', aspects: ['1/1.08', '16/9'] }, d.image)}
+        ${fieldHtml({ k: 'name', l: 'Name' }, d.name)}
+        ${fieldHtml({ k: 'heading', l: 'Title above the buttons' }, d.heading)}
+        ${fieldHtml({ k: 'bio', l: 'Short text under the name', type: 'textarea', rows: 2 }, d.bio)}
+        ${fieldHtml({ k: 'dir', l: 'Page direction', type: 'select', options: [['rtl', 'Arabic (right to left)'], ['ltr', 'English (left to right)']] }, d.dir)}
+        ${fieldHtml({ k: 'show_logo', l: 'Show the logo button (top corner)', type: 'check' }, d.show_logo)}
+      </div></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Social media icons'))}</h3><button type="button" class="btn small" id="addSoc">${ic('add', 'sm')} ${esc(T('Add'))}</button></div>
+        <div class="panel-body"><div class="lp-rows" id="socRows">${d.socials.map(socRow).join('')}</div></div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Buttons'))}</h3><button type="button" class="btn small" id="addLink">${ic('add', 'sm')} ${esc(T('Add button'))}</button></div>
+        <div class="panel-body"><p class="muted small" style="margin-top:0">${esc(T('Each button can open a page of the website (choose it from the list) or any other link.'))}</p>
+        <div class="lp-rows" id="linkRows">${d.links.map(linkRow).join('')}</div></div></div>
+
+      <div class="form-actions sticky-save"><button class="btn" id="save">${esc(T('Save changes'))}</button><span class="err" id="err"></span></div>
+    </div>
+    <div class="lp-preview panel"><div class="panel-head"><h3>${esc(T('Live preview'))}</h3><span class="muted small">${esc(T('Updates after saving'))}</span></div>
+      <div class="phone"><iframe id="lpFrame" src="${esc(pageUrl(d.slug))}" title="preview"></iframe></div></div></div>`;
+
+    bindFields(el);
+    const socRows = el.querySelector('#socRows');
+    const linkRows = el.querySelector('#linkRows');
+    el.querySelector('#addSoc').onclick = () => socRows.insertAdjacentHTML('beforeend', socRow());
+    el.querySelector('#addLink').onclick = () => { linkRows.insertAdjacentHTML('beforeend', linkRow()); linkRows.lastElementChild.querySelector('[data-f=title]').focus(); };
+    el.querySelector('#newSlug').onclick = () => { el.querySelector('[data-k=slug]').value = randSlug(); toast(T('Press Save to use the new link')); };
+    el.querySelector('#copyUrl').onclick = async () => {
+      const u = pageUrl(el.querySelector('[data-k=slug]').value.trim());
+      try { await navigator.clipboard.writeText(u); toast(T('Link copied')); } catch (e) { prompt('', u); }
+    };
+    el.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-row]');
+      if (!row) return;
+      if (e.target.closest('[data-rm]')) { row.remove(); return; }
+      const mv = e.target.closest('[data-mv]');
+      if (mv) {
+        if (mv.dataset.mv === '-1' && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+        if (mv.dataset.mv === '1' && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
+    });
+    el.addEventListener('change', (e) => {
+      const pick = e.target.closest('[data-pick]');
+      if (pick && pick.value) {
+        const row = pick.closest('[data-row]');
+        const opt = pick.selectedOptions[0];
+        row.querySelector('[data-f=url]').value = pick.value;
+        const title = row.querySelector('[data-f=title]');
+        if (!title.value) title.value = opt.dataset.title || '';
+        const img = row.querySelector('[data-k=image]');
+        if (!img.value && opt.dataset.img) { // use the course / book cover as the picture
+          img.value = opt.dataset.img;
+          row.querySelector('.pv').innerHTML = `<img src="${esc(ImgPos.src(opt.dataset.img))}" style="${ADM.imgStyle(opt.dataset.img)}" alt="">`;
+          row.querySelector('[data-imgo="pos"]').hidden = false;
+        }
+        pick.value = '';
+      }
+      const type = e.target.closest('.soc-row [data-f=type]');
+      if (type) type.closest('[data-row]').querySelector('.lp-ic').innerHTML = ic(type.value === 'website' ? 'globe' : type.value);
+      const vis = e.target.closest('.link-row [data-f=visible]');
+      if (vis) vis.closest('[data-row]').classList.toggle('off', !vis.checked);
+    });
+    const rowVal = (row, f) => { const i = row.querySelector(`[data-f=${f}]`); return i.type === 'checkbox' ? i.checked : i.value; };
+    el.querySelector('#save').onclick = async () => {
+      const err = el.querySelector('#err');
+      err.textContent = '';
+      [...linkRows.children].forEach((r) => { if (!rowVal(r, 'title').trim() && !rowVal(r, 'url').trim()) r.remove(); }); // drop empty buttons
+      [...socRows.children].forEach((r) => { if (!rowVal(r, 'url').trim()) r.remove(); });
+      const body = {
+        ...collect(el.querySelector('#lpTop')), ...collect(el.querySelector('#lpProfile')),
+        socials: [...socRows.children].map((r) => ({ type: rowVal(r, 'type'), url: rowVal(r, 'url') })),
+        links: [...linkRows.children].map((r) => ({ id: r.dataset.id, title: rowVal(r, 'title'), url: rowVal(r, 'url'), image: r.querySelector('[data-k=image]').value, visible: rowVal(r, 'visible'), highlight: rowVal(r, 'highlight') })),
+      };
+      try {
+        const saved = await put('/api/admin/linkpage', body);
+        [...linkRows.children].forEach((r, i) => { if (saved.links[i]) r.dataset.id = saved.links[i].id; });
+        el.querySelector('#lpFrame').src = pageUrl(saved.slug);
+        ADM.setTitle(T('Link page'), `<a class="btn ghost" href="${esc(pageUrl(saved.slug))}" target="_blank">${ic('external', 'sm')} ${esc(T('Open the page'))}</a>`);
+        toast(T('Saved'));
+      } catch (e) { err.textContent = e.message; }
+    };
   };
 })();

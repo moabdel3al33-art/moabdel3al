@@ -12,6 +12,7 @@ const chat = require('./chat');
 const shop = require('./shop');
 const auth = require('./auth');
 const { now, slugify, isEmail, hashPassword } = require('./util');
+const payments = require('./payments');
 const countries = require('../public/countries');
 
 const router = express.Router();
@@ -29,7 +30,7 @@ async function countBy(coll, match, field) {
 const RES = {
   courses: {
     table: 'courses', perm: 'content', slug: true, sort: { sort: 1, id: -1 },
-    fields: { title: 'str!', subtitle: 'str', description: 'text', cover: 'str', price: 'num', old_price: 'numnull', published: 'bool', sort: 'int' },
+    fields: { title: 'str!', subtitle: 'str', description: 'text', cover: 'str', price: 'num', old_price: 'numnull', published: 'bool', coming_soon: 'bool', sort: 'int' },
     async enrich(rows) {
       const ids = rows.map((r) => r.id);
       const lessons = await countBy('lessons', { course_id: { $in: ids } }, 'course_id');
@@ -43,7 +44,7 @@ const RES = {
   },
   books: {
     table: 'books', perm: 'content', slug: true, sort: { sort: 1, id: -1 },
-    fields: { title: 'str!', subtitle: 'str', description: 'text', cover: 'str', price: 'num', old_price: 'numnull', file_path: 'str', file_name: 'str', external_url: 'str', pages: 'intnull', published: 'bool', sort: 'int' },
+    fields: { title: 'str!', subtitle: 'str', description: 'text', cover: 'str', price: 'num', old_price: 'numnull', file_path: 'str', file_name: 'str', external_url: 'str', pages: 'intnull', published: 'bool', coming_soon: 'bool', sort: 'int' },
     async enrich(rows) {
       const owners = await countBy('entitlements', { item_type: 'book', item_id: { $in: rows.map((r) => r.id) } }, 'item_id');
       return rows.map((r) => ({ ...r, owners: owners.get(r.id) || 0 }));
@@ -200,17 +201,24 @@ router.post('/private-upload', requirePerm('content'), privateUpload.single('fil
 // ---------------------------------------------------------------------------
 // Settings (site texts, images, social links, colours)
 // ---------------------------------------------------------------------------
-const SETTINGS_PERM_KEYS = ['theme', 'currency'];
-router.get('/settings', requirePerm(), contentOrSettings, (req, res) => res.json({ values: settings.all(), palettes: settings.PALETTES }));
+const SETTINGS_PERM_KEYS = ['theme', 'currency', 'pay_course', 'pay_book', 'pay_plan', 'pay_consult', 'paypal_me', 'paypal_email', 'paypal_note_ar', 'paypal_note_en'];
+const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done'];
+router.get('/settings', requirePerm(), contentOrSettings, (req, res) => res.json({
+  values: settings.all(), palettes: settings.PALETTES,
+  payments: { gatewayReady: payments.gatewayReady(), gatewayMode: payments.gateway.mode, paypalMe: payments.paypalMeUrl() },
+}));
 router.put('/settings', requirePerm(), contentOrSettings, wrap(async (req, res) => {
   const values = {};
   for (const [k, v] of Object.entries(req.body.values || {})) {
-    if (!(k in settings.DEFAULTS) || k === 'youtube_channel_id') continue;
+    if (!(k in settings.DEFAULTS) || NOT_EDITABLE.includes(k)) continue;
     if (SETTINGS_PERM_KEYS.includes(k) ? !auth.can(req.user, 'settings') : !auth.can(req.user, 'content')) continue;
     if (k === 'theme') {
       const t = typeof v === 'string' ? JSON.parse(v) : v;
       if (!['bg', 'surface', 'text', 'primary'].every((c) => settings.HEX.test(t[c] || ''))) return fail(res, 400, 'Invalid colours');
       values.theme = JSON.stringify({ bg: t.bg, surface: t.surface, text: t.text, primary: t.primary, name: t.name || 'Custom' });
+    } else if (k.startsWith('pay_')) {
+      const list = String(v || '').split(',').filter((m) => payments.METHODS.includes(m));
+      values[k] = (list.length ? [...new Set(list)] : ['chat']).join(',');
     } else values[k] = String(v == null ? '' : v).slice(0, 20000);
   }
   if ('social_youtube' in values && values.social_youtube !== settings.get('social_youtube')) {
@@ -511,8 +519,8 @@ router.delete('/clients/:id/grant/:entId', requirePerm('clients'), wrap(async (r
 }));
 router.get('/catalog', requirePerm(), wrap(async (req, res) => {
   res.json({
-    courses: await find('courses', {}, { sort: { title: 1 }, projection: { id: 1, title: 1 } }),
-    books: await find('books', {}, { sort: { title: 1 }, projection: { id: 1, title: 1 } }),
+    courses: await find('courses', {}, { sort: { title: 1 }, projection: { id: 1, title: 1, slug: 1, cover: 1 } }),
+    books: await find('books', {}, { sort: { title: 1 }, projection: { id: 1, title: 1, slug: 1, cover: 1 } }),
   });
 }));
 
@@ -600,6 +608,9 @@ router.get('/overview', requirePerm(), wrap(async (req, res) => {
     out.currency = settings.get('currency');
   });
   job('bookings', async () => { out.newBookings = await count('bookings', { status: 'paid' }); });
+  job('orders', async () => {
+    [out.newReservations, out.proofsToCheck] = await Promise.all([count('reservations', { status: 'new' }), count('orders', { status: 'pending', proof: { $type: 'object' } })]);
+  });
   job('clients', async () => {
     const st = await clientStats(30);
     out.clients = st.totals.total;
@@ -611,6 +622,33 @@ router.get('/overview', requirePerm(), wrap(async (req, res) => {
   job('team_view', async () => { out.team = await teamList({ role: { $in: ['admin', 'support'] }, active: 1 }); });
   await Promise.all(jobs);
   res.json(out);
+}));
+
+// ---------------------------------------------------------------------------
+// Seat reservations for "coming soon" courses and books (no payment)
+// ---------------------------------------------------------------------------
+router.get('/reservations', requirePerm('orders'), wrap(async (req, res) => {
+  const filter = {};
+  if (['new', 'contacted'].includes(req.query.status)) filter.status = req.query.status;
+  res.json(await find('reservations', filter, { sort: { id: -1 }, limit: 3000 }));
+}));
+router.put('/reservations/:id', requirePerm('orders'), wrap(async (req, res) => {
+  const status = req.body.status === 'contacted' ? 'contacted' : 'new';
+  await setOne('reservations', { id: Number(req.params.id) }, { status, handled_by: req.user.id, handled_at: now() });
+  res.json({ ok: true });
+}));
+router.delete('/reservations/:id', requirePerm('orders'), wrap(async (req, res) => {
+  await remove('reservations', { id: Number(req.params.id) });
+  res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// Hidden "link in bio" page (/p/<secret link>)
+// ---------------------------------------------------------------------------
+const linkpage = require('./linkpage');
+router.get('/linkpage', requirePerm('content'), wrap(async (req, res) => res.json(await linkpage.get())));
+router.put('/linkpage', requirePerm('content'), wrap(async (req, res) => {
+  try { res.json(await linkpage.save(req.body || {})); } catch (e) { fail(res, 400, req.t(e.message)); }
 }));
 
 module.exports = { router };

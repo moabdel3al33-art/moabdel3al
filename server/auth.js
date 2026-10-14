@@ -67,7 +67,6 @@ async function userFromToken(token) {
   ]);
   let user = u || null;
   if (user && !user.active) user = null;
-  if (user && user.role === 'client' && !user.email_verified && !user.is_guest) user = null;
   if (sessionCache.size > 5000) sessionCache.clear();
   sessionCache.set(token, { user, at: now() });
   return user;
@@ -228,32 +227,31 @@ function phoneFrom(body, t) {
   return p;
 }
 
+// Email is optional everywhere. Accounts are ready straight away (no email code); an email, when given,
+// is only used for receipts and to reset a forgotten password. ("email_verified" = the account is complete.)
 router.post('/register', wrap(async (req, res) => {
   const t = req.t;
   if (limited(`reg:${ip(req)}`, 10, 3600e3)) return fail(res, 429, t('Too many attempts. Please try again later.'));
   const name = String(req.body.name || '').trim().slice(0, 100);
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const email = String(req.body.email || '').trim().toLowerCase() || null;
   const password = String(req.body.password || '');
   if (name.length < 2) return fail(res, 400, t('Please enter your full name'));
-  if (!isEmail(email)) return fail(res, 400, t('Please enter a valid email'));
+  if (email && !isEmail(email)) return fail(res, 400, t('Please enter a valid email'));
   const { e164: phone, country } = phoneFrom(req.body, t);
   if (password.length < 6) return fail(res, 400, t('Password must be at least 6 characters'));
-  const byEmail = await one('users', { email });
+  const byEmail = email ? await one('users', { email }) : null;
   if (byEmail && (byEmail.email_verified || byEmail.role !== 'client')) return fail(res, 409, t('This email already has an account. Please log in.'));
   const byPhone = await one('users', { phone });
   if (byPhone && !(byPhone.role === 'client' && (byPhone.is_guest || !byPhone.email_verified))) return fail(res, 409, t('This phone number already has an account. Please log in.'));
   // Reuse the earlier chat-only client with this phone, so their past chats join the new account.
   let user = byPhone || byEmail;
-  if (byPhone && byEmail && byPhone.id !== byEmail.id) await setOne('users', { id: byEmail.id }, { email: null }); // drop the abandoned sign-up
-  if (user) {
-    await setOne('users', { id: user.id }, { name, email, phone, country, password_hash: hashPassword(password), email_verified: 0 });
-  } else {
-    const id = await newUser({ role: 'client', name, email, phone, country, password_hash: hashPassword(password) });
-    user = { id };
-  }
-  user = { ...user, name, email };
-  const r = await sendCode(user, 'verify', req.lang).catch((e) => (e.status === 429 ? {} : Promise.reject(e)));
-  res.json({ ok: true, needVerify: true, email, remember: wantsRemember(req.body), ...r });
+  if (byEmail && user.id !== byEmail.id) await setOne('users', { id: byEmail.id }, { email: null }); // drop the abandoned sign-up
+  const fields = { name, email, phone, country, password_hash: hashPassword(password), email_verified: 1, is_guest: 0 };
+  if (user) await setOne('users', { id: user.id }, fields);
+  else user = { id: await newUser({ role: 'client', ...fields }) };
+  forgetUser(user.id);
+  await createSession(res, user.id, wantsRemember(req.body));
+  res.json({ ok: true });
 }));
 
 router.post('/verify', wrap(async (req, res) => {
@@ -285,10 +283,7 @@ router.post('/login', wrap(async (req, res) => {
   const user = (await findByLogin(req.body.login)).find((u) => verifyPassword(password, u.password_hash));
   if (!user) return fail(res, 401, t('Wrong email/phone or password'));
   if (!user.active) return fail(res, 403, t('This account is disabled'));
-  if (user.role === 'client' && !user.email_verified) {
-    const r = await sendCode(user, 'verify', req.lang).catch((e) => (e.status === 429 ? {} : Promise.reject(e)));
-    return res.json({ ok: true, needVerify: true, email: user.email, remember: wantsRemember(req.body), ...r });
-  }
+  if (user.role === 'client' && !user.email_verified) await setOne('users', { id: user.id }, { email_verified: 1, is_guest: 0 }); // older sign-ups waiting for an email code
   await createSession(res, user.id, wantsRemember(req.body));
   res.json({ ok: true, user: publicUser(user), staff: isStaff(user) });
 }));
@@ -352,7 +347,14 @@ router.post('/profile', requireUser, wrap(async (req, res) => {
   const { e164: phone, country } = phoneFrom(req.body, t);
   const taken = await one('users', { phone, id: { $ne: req.user.id } });
   if (taken) return fail(res, 409, t('This phone number is already used by another account'));
-  await setOne('users', { id: req.user.id }, { name, phone, country });
+  const sets = { name, phone, country };
+  if ('email' in req.body) {
+    const email = String(req.body.email || '').trim().toLowerCase() || null;
+    if (email && !isEmail(email)) return fail(res, 400, t('Please enter a valid email'));
+    if (email && await one('users', { email, id: { $ne: req.user.id } })) return fail(res, 409, t('This email is already used by another account'));
+    sets.email = email;
+  }
+  await setOne('users', { id: req.user.id }, sets);
   forgetUser(req.user.id);
   res.json({ ok: true });
 }));

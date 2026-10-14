@@ -9,6 +9,8 @@ const comments = require('./comments');
 const auth = require('./auth');
 const views = require('./views');
 const settings = require('./settings');
+const payments = require('./payments');
+const linkpage = require('./linkpage');
 
 const router = express.Router();
 const ctxOf = (req) => ({ t: req.t, lang: req.lang, user: req.user, path: req.originalUrl, countryGuess: req.countryGuess });
@@ -142,8 +144,42 @@ router.get('/checkout', wrap(async (req, res) => {
   const type = ['book', 'plan'].includes(req.query.type) ? req.query.type : 'course';
   const item = await shop.loadItem(type, req.query.id);
   if (!item || !item.published) return notFound(req, res);
-  if (type !== 'plan' && await shop.hasAccess(req.user, type, item.id)) return res.redirect(`/${type}s/${encodeURIComponent(item.slug)}`);
+  if (type !== 'plan' && (item.coming_soon || await shop.hasAccess(req.user, type, item.id))) return res.redirect(`/${type}s/${encodeURIComponent(item.slug)}`);
   res.send(views.checkout(ctxOf(req), type, item));
+}));
+
+// ---- Payment page: the client chooses chat / PayPal / online payment for an order ----
+async function myOrder(req, res) {
+  if (needAccount(req, res)) return null;
+  const order = await shop.orderWithItems(Number(req.params.id));
+  if (!order || order.user_id !== req.user.id) { notFound(req, res); return null; }
+  return order;
+}
+router.get('/pay/:id', wrap(async (req, res) => {
+  const order = await myOrder(req, res); if (!order) return;
+  res.send(views.payPage(ctxOf(req), order, {
+    methods: payments.methodsFor(payments.typeOf(order)), paypalLink: payments.paypalLink(order), paypalEmail: settings.get('paypal_email'),
+    paypalNote: settings.get(`paypal_note_${req.lang}`) || settings.get(`paypal_note_${req.lang === 'ar' ? 'en' : 'ar'}`), error: !!req.query.err,
+  }));
+}));
+// PayPal sends the client back here after the online payment.
+router.get('/pay/:id/return', wrap(async (req, res) => {
+  const order = await myOrder(req, res); if (!order) return;
+  if (order.status === 'pending') {
+    try { await payments.gatewayFinish(order, String(req.query.token || ''), shop); } catch (e) {
+      console.error('gateway return', e.message);
+      return res.redirect(`/pay/${order.id}?err=1`);
+    }
+  }
+  res.redirect(`/pay/${order.id}`);
+}));
+
+// ---- Hidden "link in bio" page: only people with the link can open it ----
+router.get('/p/:slug', wrap(async (req, res) => {
+  const d = await linkpage.bySlug(req.params.slug);
+  if (!d) return notFound(req, res);
+  res.set('X-Robots-Tag', 'noindex, nofollow').set('Cache-Control', 'no-store');
+  res.send(views.linkPage(ctxOf(req), d, new URL(`/p/${d.slug}`, config.siteUrl)));
 }));
 router.get('/chat', wrap(async (req, res) => {
   if (!req.user) return res.send(views.chatEntry(ctxOf(req), req.query));

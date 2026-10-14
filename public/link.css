@@ -1,0 +1,95 @@
+/* =====================================================================
+ *  Hidden "link in bio" page (/p/<secret link>). Uses the 4 site colours.
+ * ===================================================================== */
+:root {
+  --line: color-mix(in srgb, var(--c-text) 12%, transparent);
+  --muted: color-mix(in srgb, var(--c-text) 62%, var(--c-bg));
+  --glow: color-mix(in srgb, var(--c-primary) 40%, transparent);
+  --lux: linear-gradient(135deg, color-mix(in srgb, var(--c-primary) 62%, #fff) 0%, var(--c-primary) 48%, color-mix(in srgb, var(--c-primary) 78%, #000) 100%);
+  --pill: color-mix(in srgb, var(--c-surface) 92%, var(--c-text));
+}
+[data-tone=light] { --pill: color-mix(in srgb, var(--c-surface) 90%, var(--c-primary)); }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body.lp { margin: 0; min-height: 100vh; font-family: 'Cairo', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; color: var(--c-text); background: var(--c-bg); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+.ic { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; display: inline-block; }
+[dir=rtl] .ic.flip { transform: scaleX(-1); }
+
+/* blurred copy of the photo behind the card (computers) */
+.lp-backdrop { position: fixed; inset: -40px; z-index: 0; background-size: cover; background-position: center; filter: blur(40px) saturate(1.1); opacity: .45; }
+.lp-backdrop::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 30%, transparent, var(--c-bg) 75%); }
+.lp-backdrop.plain { background: radial-gradient(900px 500px at 50% -10%, var(--glow), transparent 65%); filter: none; opacity: 1; }
+
+.lp-card { position: relative; z-index: 1; width: 100%; max-width: 560px; margin: 0 auto; min-height: 100vh; background: var(--c-bg); overflow: hidden; }
+@media (min-width: 620px) {
+  .lp-card { margin: 28px auto; min-height: 0; border-radius: 32px; border: 1px solid var(--line); box-shadow: 0 40px 100px -40px rgba(0, 0, 0, .6), 0 0 0 1px color-mix(in srgb, var(--c-primary) 18%, transparent); }
+}
+
+/* ---- photo with the faded bottom ---- */
+.lp-hero { position: relative; aspect-ratio: 1 / 1.08; overflow: hidden; }
+.lp-hero.no-img { aspect-ratio: auto; height: 120px; }
+.lp-hero > img { width: 100%; height: 100%; object-fit: cover; animation: lpZoom 1.4s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes lpZoom { from { filter: blur(10px); opacity: .3; } to { filter: none; opacity: 1; } } /* no transform: the admin's zoom uses it */
+.lp-fade { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--c-bg) 25%, transparent) 0%, transparent 18%, transparent 42%, color-mix(in srgb, var(--c-bg) 55%, transparent) 66%, color-mix(in srgb, var(--c-bg) 88%, transparent) 82%, var(--c-bg) 100%); }
+.lp-chip { position: absolute; top: 16px; width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; z-index: 2; border: 1px solid color-mix(in srgb, var(--c-text) 14%, transparent);
+  background: color-mix(in srgb, var(--c-surface) 72%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--c-text); cursor: pointer; overflow: hidden;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, .5); transition: transform .2s; }
+.lp-chip:hover { transform: scale(1.06); }
+.lp-chip .ic { width: 22px; height: 22px; }
+.lp-chip img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.lp-logo { left: 16px; }
+.lp-share { right: 16px; }
+
+/* ---- name, bio, social icons ---- */
+.lp-body { position: relative; z-index: 1; margin-top: -96px; padding: 0 20px 34px; text-align: center; }
+.lp-hero.no-img + .lp-body { margin-top: -20px; }
+.lp-body h1 { margin: 0; font-family: 'El Messiri', 'Cairo', serif; font-weight: 700; font-size: clamp(30px, 8.6vw, 40px); line-height: 1.25; letter-spacing: .2px; animation: lpUp .6s .1s both; }
+.lp-bio { margin: 4px 0 0; color: var(--muted); font-size: 17px; line-height: 1.6; animation: lpUp .6s .18s both; }
+.lp-social { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 20px; animation: lpUp .6s .26s both; }
+.lp-social a { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; transition: transform .2s, color .2s, background .2s; }
+.lp-social a .ic { width: 30px; height: 30px; }
+.lp-social a:hover { color: var(--c-primary); background: color-mix(in srgb, var(--c-primary) 12%, transparent); transform: translateY(-3px); }
+.lp-heading { margin: 30px 0 14px; font-size: 17px; font-weight: 800; animation: lpUp .6s .32s both; }
+@keyframes lpUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ---- link buttons: picture on the left, title in the middle, ⋮ on the right ---- */
+.lp-links { display: flex; flex-direction: column; gap: 16px; }
+.lp-link { position: relative; display: flex; align-items: center; direction: ltr; min-height: 80px; padding: 8px 8px 8px 9px; border-radius: 44px;
+  background: var(--pill); border: 1px solid var(--line);
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .55), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  transition: transform .2s cubic-bezier(.2, .7, .2, 1), border-color .2s, box-shadow .2s;
+  animation: lpUp .55s both; animation-delay: calc(.38s + var(--i) * .07s); }
+.lp-link:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c-primary) 55%, transparent); box-shadow: 0 16px 34px -16px var(--glow); }
+.lp-link:active { transform: scale(.98); }
+.lp-a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
+.lp-a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; } /* the whole button is clickable */
+.lp-thumb { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex: none; display: grid; place-items: center;
+  border: 2.5px solid color-mix(in srgb, var(--c-text) 78%, transparent); background: var(--c-surface); color: var(--c-primary); box-shadow: 0 0 0 3px var(--pill); }
+.lp-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.lp-thumb .ic { width: 28px; height: 28px; }
+.lp-title { flex: 1; min-width: 0; text-align: center; font-size: 16.5px; font-weight: 700; line-height: 1.45; padding: 0 4px; unicode-bidi: plaintext; }
+.lp-more { position: relative; z-index: 2; width: 38px; height: 38px; flex: none; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: background .2s, color .2s; }
+.lp-more:hover { background: color-mix(in srgb, var(--c-text) 8%, transparent); color: var(--c-text); }
+.lp-more .ic { width: 22px; height: 22px; }
+
+/* featured button */
+.lp-link.hl { background: var(--lux); color: var(--c-on-primary); border-color: transparent; box-shadow: 0 16px 34px -14px var(--glow); overflow: hidden; }
+.lp-link.hl .lp-thumb { border-color: color-mix(in srgb, var(--c-on-primary) 70%, transparent); box-shadow: none; }
+.lp-link.hl .lp-more { color: inherit; opacity: .8; }
+.lp-link.hl::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent); animation: lpShine 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes lpShine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+
+.lp-foot { margin-top: 30px; font-size: 13.5px; color: var(--muted); }
+.lp-foot a:hover { color: var(--c-primary); }
+.lp-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 10; padding: 10px 18px; border-radius: 12px; background: var(--c-text); color: var(--c-bg); font-weight: 700; }
+[hidden] { display: none !important; }
+
+@media (max-width: 380px) {
+  .lp-link { min-height: 72px; }
+  .lp-thumb { width: 56px; height: 56px; }
+  .lp-title { font-size: 15.5px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

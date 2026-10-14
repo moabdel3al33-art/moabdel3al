@@ -70,6 +70,7 @@ app.post('/api/upload', auth.requireUser, upload.single('file'), (req, res) => {
 app.use('/api/auth', auth.router);
 app.use('/api/chat', chat.router);
 app.use('/api/shop', shop.router);
+app.use('/api/pay', require('./payments').router);
 app.use('/api/comments', comments.router);
 app.use('/api/admin/comments', comments.admin);
 app.use('/api/admin', admin.router);
@@ -98,6 +99,7 @@ chat.setup(io);
     process.exit(1);
   }
   await settings.load();
+  await settings.migrate();
   await auth.seedAdmin();
   await seed.demo();
   await seed.plans();
