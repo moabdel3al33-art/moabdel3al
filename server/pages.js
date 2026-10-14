@@ -9,6 +9,7 @@ const auth = require('./auth');
 const views = require('./views');
 const settings = require('./settings');
 const payments = require('./payments');
+const consult = require('./consult');
 const linkpage = require('./linkpage');
 const storage = require('./storage');
 const { origin } = require('./util');
@@ -37,17 +38,16 @@ const NEWEST_POSTS = { published_at: -1, created_at: -1 };
 
 router.get('/', wrap(async (req, res) => {
   // everything on the home page is loaded at the same time
-  const [courses, books, posts, consults, social, reviews, plans, siteRating, ownedCourses, ownedBooks, memberUntil] = await Promise.all([
+  const [courses, books, posts, social, reviews, plans, siteRating, ownedCourses, ownedBooks, memberUntil] = await Promise.all([
     courseList(6),
     find('books', { published: 1 }, { sort: { sort: 1, id: -1 }, limit: 4 }),
     find('posts', { published: 1 }, { sort: NEWEST_POSTS, limit: 3 }),
-    find('consult_types', { published: 1 }, { sort: { sort: 1, id: 1 }, limit: 3 }),
     find('social_posts', { hidden: { $ne: 1 } }, { sort: { pinned: -1, posted_at: -1, created_at: -1 }, limit: 8 }),
     comments.testimonials(10), plansList(), comments.ratingFor('site', 0),
     shop.ownedIds(req.user, 'course'), shop.ownedIds(req.user, 'book'), req.user ? shop.subEnd(req.user.id) : null,
   ]);
   res.send(views.home(ctxOf(req), {
-    courses, books, posts, consults, social,
+    courses, books, posts, social,
     ownedCourses, ownedBooks, reviews, plans, siteRating, memberUntil,
   }));
 }));
@@ -164,15 +164,13 @@ router.get('/reviews', wrap(async (req, res) => {
   res.send(views.reviews(ctxOf(req), list, rating));
 }));
 
-router.get('/consultations', wrap(async (req, res) => {
-  res.send(views.consultations(ctxOf(req), await find('consult_types', { published: 1 }, { sort: { sort: 1, id: 1 } })));
-}));
-router.get('/consultations/:id', wrap(async (req, res) => {
+router.get('/consultations', (req, res) => res.send(views.consultations(ctxOf(req))));
+router.get('/consultations/book', (req, res) => {
   if (needAccount(req, res)) return;
-  const c = await one('consult_types', { id: Number(req.params.id), published: 1 });
-  if (!c) return notFound(req, res);
-  res.send(views.bookingForm(ctxOf(req), c, req.query));
-}));
+  if (!consult.tiers().length) return res.redirect('/consultations');
+  res.send(views.bookingForm(ctxOf(req), req.query));
+});
+router.get('/consultations/:id', (req, res) => res.redirect(`/consultations/book${req.query.tier ? `?tier=${encodeURIComponent(req.query.tier)}` : ''}`)); // old links
 
 // ---- Checkout & chat ----
 router.get('/checkout', wrap(async (req, res) => {
@@ -259,7 +257,7 @@ router.get('/account', wrap(async (req, res) => {
   const courses = await withLessonCounts(owned('course', courseMap));
   const books = owned('book', bookMap);
   const types = await mapById('consult_types', bookingRows.map((b) => b.type_id), { id: 1, title: 1 });
-  const bookings = bookingRows.map((b) => ({ ...b, title: (types.get(b.type_id) || {}).title || '' }));
+  const bookings = bookingRows.map((b) => ({ ...b, title: b.title || (types.get(b.type_id) || {}).title || '' }));
   const orders = orderRows.map((o) => ({ ...o, items: (o.items || []).map((i) => i.title).join(', ') }));
   const sub = await shop.activeSub(req.user);
   res.send(views.account(ctxOf(req), { courses, books, bookings, orders, sub, memberUntil: await shop.subEnd(uid) }));

@@ -262,14 +262,6 @@ function postCard(ctx, p) {
       <p>${esc(p.excerpt || plain(p.body).slice(0, 160))}</p></div></a>`;
 }
 const openBadge = (ctx) => `<span class="open-badge">${icon('infinity')} ${esc(ctx.t('Open session'))}</span>`;
-function consultCard(ctx, c) {
-  const from = consult.fromPrice(c);
-  return `<div class="card consult">
-    <div class="consult-ic">${c.cover ? img(c.cover, c.title) : icon('calendar')}</div>
-    <div class="card-body"><h3>${esc(c.title)}</h3><p>${esc(plain(c.description).slice(0, 200))}</p>
-      <div class="card-foot">${from ? `<span class="price"><small class="from">${esc(ctx.t('From'))}</small> ${esc(price(ctx, from))}</span>` : ''}${openBadge(ctx)}</div>
-      <a class="btn primary block" href="${loginOr(ctx, `/consultations/${c.id}`)}">${icon('calendar')} ${esc(ctx.t('Book now'))}</a></div></div>`;
-}
 function socialPostCard(ctx, p) {
   return `<a class="spost ${esc(p.platform)}" href="${esc(p.url)}" target="_blank" rel="noopener">
     <div class="spost-img">${img(p.thumbnail, p.title)}<span class="spost-badge ${esc(p.platform)}">${icon(p.platform)}</span>${p.platform === 'youtube' || p.platform === 'tiktok' ? `<span class="spost-play">${icon('play')}</span>` : ''}</div>
@@ -389,8 +381,8 @@ ${d.plans.length ? `<section class="wrap sec"><div class="member-banner">
   ${d.memberUntil ? memberStatus(ctx, d.memberUntil) : `<a class="btn primary lg" href="/membership">${esc(t('See the plans'))}</a>`}
 </div></section>` : ''}
 
-${d.consults.length ? `<section class="sec alt"><div class="wrap">${sectionHead(t('Private consultations'), t('A one-to-one session to talk about your situation'), '/consultations', t('All consultations'))}
-  <div class="grid rail">${d.consults.map((c) => consultCard(ctx, c)).join('')}</div></div></section>` : ''}
+${consult.tiers().length ? `<section class="sec alt"><div class="wrap">${sectionHead(t('Private consultations'), t('A one-to-one session to talk about your situation'), '/consultations', t('Open session'))}
+  ${tierCards(ctx)}</div></section>` : ''}
 
 ${d.books.length ? `<section class="wrap sec">${sectionHead(t('Books'), t('Digital books you can read anywhere'), '/books', t('All books'))}
   <div class="grid books rail pop-books">${d.books.map((b, i) => bookCard(ctx, b, ownedOf(d.ownedBooks, b.id), i)).join('')}</div></section>` : ''}
@@ -604,21 +596,19 @@ function openSession(ctx) {
         <li>${icon('chat')}<span>${esc(t('Talk until you feel at ease'))}</span></li></ul></div>
   </div>`;
 }
-function tierCards(ctx, c) {
+function tierCards(ctx) {
   const { t } = ctx;
-  return `<div class="tiers">${consult.tiersOf(c).map((x) => `<a class="tier ${x.k === 'today' ? 'hot' : ''}" href="${loginOr(ctx, `/consultations/${c.id}?tier=${x.k}`)}">
+  return `<div class="tiers">${consult.tiers().map((x) => `<a class="tier ${x.k === 'today' ? 'hot' : ''}" href="${loginOr(ctx, `/consultations/book?tier=${x.k}`)}">
       ${x.k === 'today' ? `<span class="tier-tag">${icon('bolt')} ${esc(t('Fastest'))}</span>` : ''}
       <span class="tier-ic">${icon(x.icon)}</span><b class="tier-name">${esc(t(x.label))}</b><span class="tier-sub">${esc(t(x.sub))}</span>
       <span class="tier-price">${esc(price(ctx, x.price))}</span>${openBadge(ctx)}
       <span class="btn ${x.k === 'today' ? 'primary' : 'ghost'} block">${icon('calendar')} ${esc(t('Book now'))}</span></a>`).join('')}</div>`;
 }
-function consultations(ctx, list) {
+function consultations(ctx) {
   const { t } = ctx;
   const body = `${banner(ctx, t('Private consultations'), t('A one-to-one session to talk about your situation'), settings.get('img_consult'))}
   <section class="wrap sec">${openSession(ctx)}
-  ${list.length ? list.map((c) => `<article class="cblock" id="c${c.id}">
-      <div class="cblock-head">${c.cover ? `<div class="consult-ic big">${img(c.cover, c.title)}</div>` : ''}<div><h2>${esc(c.title)}</h2>${c.description ? `<div class="prose">${md(c.description)}</div>` : ''}</div></div>
-      ${tierCards(ctx, c)}</article>`).join('') : empty(ctx, t('No consultations available right now.'))}
+  ${consult.tiers().length ? `<h2 class="tiers-h">${esc(t('Choose how soon you want your session'))}</h2>${tierCards(ctx)}` : empty(ctx, t('No consultations available right now.'))}
   <div class="steps">
     <div><b>1</b><span>${esc(t('Choose how soon you want your session'))}</span></div>
     <div><b>2</b><span>${esc(t('Leave your WhatsApp number and complete the payment'))}</span></div>
@@ -626,18 +616,17 @@ function consultations(ctx, list) {
   </div></section>`;
   return layout(ctx, { title: t('Consultations'), body, active: 'consult' });
 }
-function bookingForm(ctx, c, q = {}) {
+function bookingForm(ctx, q = {}) {
   const { t, user } = ctx;
-  const tiers = consult.tiersOf(c);
+  const tiers = consult.tiers();
   const pick = tiers.find((x) => x.k === q.tier) || tiers[0];
   const body = `
 <section class="wrap narrow sec">
   <a class="crumb" href="/consultations">${esc(t('Consultations'))}</a>
   <div class="checkout">
-    <div class="co-item"><div class="consult-ic">${c.cover ? img(c.cover, c.title) : icon('calendar')}</div><div><h1>${esc(c.title)}</h1>
+    <div class="co-item"><div class="consult-ic">${icon('calendar')}</div><div><h1>${esc(t('Private consultation'))}</h1>
       <div class="meta-row">${openBadge(ctx)}<span class="muted small">${esc(t('No time limit — talk as long as you need'))}</span></div></div></div>
     <form class="form" data-api="/api/shop/bookings">
-      <input type="hidden" name="type_id" value="${c.id}">
       <h3 class="pay-h">${esc(t('When should we contact you?'))}</h3>
       <div class="pm-list">${tiers.map((x) => `<label class="pm ${x === pick ? 'on' : ''}"><input type="radio" name="tier" value="${x.k}" ${x === pick ? 'checked' : ''} required>
         <span class="pm-ic">${icon(x.icon)}</span><span class="pm-txt"><b>${esc(t(x.label))}</b><span>${esc(t(x.sub))}</span></span>
@@ -651,7 +640,7 @@ function bookingForm(ctx, c, q = {}) {
     </form>
   </div>
 </section>`;
-  return layout(ctx, { title: c.title, body, active: 'consult' });
+  return layout(ctx, { title: t('Private consultation'), body, active: 'consult' });
 }
 
 // ---------------------------------------------------------------------------

@@ -52,6 +52,11 @@ const DEFAULTS = {
   paypal_note_en: '',
   // ---- Hidden "link in bio" page (JSON, edited in Admin > Link page) ----
   linkpage: '',
+  // ---- Consultations: the 3 options and their prices (empty = option hidden) ----
+  consult_price_today: '',
+  consult_price_2d: '',
+  consult_price_4d: '',
+  consult_tiers_done: '',
   consult_open_title_ar: 'جلستك مفتوحة… بلا وقت محدد',
   consult_open_title_en: 'Your session is open… with no time limit',
   consult_open_text_ar: 'ميزتي الخاصة: لا يوجد عدّاد دقائق ولا ساعة نهاية. تكلّم معي بالوقت الذي تحتاجه حتى تصل لإجابتك وتطمئن تماماً.',

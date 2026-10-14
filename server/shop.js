@@ -166,17 +166,16 @@ router.post('/orders', requireAccount, wrap(async (req, res) => {
 
 router.post('/bookings', requireAccount, wrap(async (req, res) => {
   const t = req.t;
-  const type = await loadItem('consultation', req.body.type_id);
-  if (!type || !type.published) return fail(res, 404, t('This item is not available'));
   // No calendar: the client picks how soon (today / within 2 days / within 4 days) and leaves a WhatsApp number.
-  const tier = consult.tiersOf(type).find((x) => x.k === req.body.tier);
+  const tier = consult.tiers().find((x) => x.k === req.body.tier);
   if (!tier) return fail(res, 400, t('Please choose when you want the session'));
   const wa = countries.normalize(req.body.country, req.body.phone);
   if (!wa) return fail(res, 400, t('Please enter your WhatsApp number'));
   const notes = String(req.body.notes || '').trim().slice(0, 2000);
-  const orderId = await createOrder(req.user, [{ type: 'consultation', id: type.id, title: `${type.title} — ${t(tier.label)}`, price: tier.price }]);
+  const title = `${t('Private consultation')} — ${t(tier.label)}`;
+  const orderId = await createOrder(req.user, [{ type: 'consultation', id: 0, title, price: tier.price }]);
   await insert('bookings', {
-    user_id: req.user.id, type_id: type.id, order_id: orderId, tier: tier.k, whatsapp: wa.e164, whatsapp_country: wa.country, contact_by: consult.contactBy(tier.days),
+    user_id: req.user.id, type_id: null, title, order_id: orderId, tier: tier.k, whatsapp: wa.e164, whatsapp_country: wa.country, contact_by: consult.contactBy(tier.days),
     preferred_date: null, preferred_time: null, notes, status: 'pending_payment', scheduled_at: null, meeting_link: null, admin_note: null, created_at: now(),
   });
   res.json({ ok: true, orderId, redirect: payments.nextUrl(orderId, 'consultation') });

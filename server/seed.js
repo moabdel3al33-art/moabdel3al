@@ -60,15 +60,6 @@ async function demo() {
     body: 'عقلنا يحب الأشياء المألوفة. كلما سمعنا معلومة أكثر، شعرنا أنها **صحيحة** حتى لو كانت كاذبة. هذا ما يسميه علماء النفس **تأثير الحقيقة الوهمية**.\n\n## كيف تحمي نفسك؟\n- اسأل دائماً: ما مصدر هذه المعلومة؟\n- لا تحكم على صحة الكلام من عدد مرات سماعه',
   });
 
-  await insert('consult_types', {
-    ...base, sort: 1, price: 40, price_today: 80, price_2d: 60, price_4d: 40, title: 'استشارة فردية كاملة',
-    description: 'جلسة أونلاين خاصة لمدة ساعة لمناقشة موقفك بالتفصيل (علاقة، عمل، أسرة) والخروج بخطة واضحة.',
-  });
-  await insert('consult_types', {
-    ...base, sort: 2, price: 25, price_today: 50, price_2d: 35, price_4d: 25, title: 'جلسة سريعة',
-    description: 'نصف ساعة للإجابة عن سؤال محدد أو موقف عاجل.',
-  });
-
   const qr = [
     ['ترحيب', 'أهلاً بيك 👋 معاك فريق محمد عبد العال، إزاي نقدر نساعدك؟'],
     ['دفع', 'طرق الدفع المتاحة:\n• فودافون كاش: 01000000000\n• إنستاباي: example@instapay\nابعتلنا صورة التحويل هنا وهنفعّل طلبك فوراً ✅'],
@@ -95,11 +86,17 @@ async function plans() {
   console.log('  Added 4 membership plans (monthly, 3, 6 and 12 months). Edit prices in the admin panel.');
 }
 
-// Consultation types made before the 3 booking options: their old price becomes the "within 4 days" price.
+// Consultations are now 3 fixed options with prices in the settings. If prices were typed on a consultation
+// type (previous version), they are copied once. A brand-new site starts with example prices.
 async function consultTiers() {
-  const { col } = require('./db');
-  await col('consult_types').updateMany({ price_today: { $exists: false }, price_2d: { $exists: false }, price_4d: { $exists: false } },
-    [{ $set: { price_4d: { $cond: [{ $gt: ['$price', 0] }, '$price', null] }, price_today: null, price_2d: null } }]);
+  const settings = require('./settings');
+  const { find, count } = require('./db');
+  if (settings.get('consult_tiers_done')) return;
+  const values = { consult_tiers_done: '1' };
+  const typed = (await find('consult_types', { published: 1 }, { sort: { sort: 1, id: 1 } })).find((c) => c.price_today || c.price_2d);
+  if (typed) Object.assign(values, { consult_price_today: typed.price_today || '', consult_price_2d: typed.price_2d || '', consult_price_4d: typed.price_4d || '' });
+  else if (!(await count('orders'))) Object.assign(values, { consult_price_today: '80', consult_price_2d: '60', consult_price_4d: '40' });
+  await settings.save(values);
 }
 
 module.exports = { demo, plans, consultTiers };

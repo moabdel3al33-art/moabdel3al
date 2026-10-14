@@ -946,3 +946,4 @@ html.js .pop-books.popped .card { animation: bookPop .9s cubic-bezier(.2, 1.5, .
  *  Book reader button
  * ===================================================================== */
 .buybox .btn .ic { width: 1.2em; height: 1.2em; }
+.tiers-h { text-align: center; margin: 6px 0 22px; font-size: clamp(20px, 2.6vw, 26px); }

@@ -133,7 +133,6 @@ router.post('/r/:res', requirePerm(), wrap(async (req, res) => {
   if (def.table === 'posts') { row.author_id = req.user.id; if (row.published && !row.published_at) row.published_at = now(); }
   if (def.table === 'quick_replies') row.created_by = req.user.id;
   if (def.table === 'social_posts') { row.source = 'manual'; row.external_id = null; }
-  if (def.table === 'consult_types') row.price = require('./consult').fromPrice(row);
   const id = await insert(def.table, row);
   afterChange(req.params.res);
   res.json({ ok: true, id });
@@ -148,7 +147,6 @@ router.put('/r/:res/:id', requirePerm(), wrap(async (req, res) => {
   if (def.slug && req.body.slug !== undefined) row.slug = await uniqueSlug(def.table, req.body.slug || row.title || current.title, id);
   if (def.table !== 'quick_replies') row.updated_at = now();
   if (def.table === 'posts' && row.published && !current.published_at && !row.published_at) row.published_at = now();
-  if (def.table === 'consult_types') row.price = require('./consult').fromPrice({ ...current, ...row });
   if (Object.keys(row).length) await setOne(def.table, { id }, row);
   afterChange(req.params.res);
   res.json({ ok: true });
@@ -199,7 +197,7 @@ router.post('/private-upload', requirePerm('content'), privateUpload.single('fil
 // Settings (site texts, images, social links, colours)
 // ---------------------------------------------------------------------------
 const SETTINGS_PERM_KEYS = ['theme', 'currency', 'pay_course', 'pay_book', 'pay_plan', 'pay_consult', 'paypal_me', 'paypal_email', 'paypal_note_ar', 'paypal_note_en'];
-const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done', 'followers_fetched'];
+const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done', 'followers_fetched', 'consult_tiers_done'];
 router.get('/settings', requirePerm(), contentOrSettings, (req, res) => res.json({
   values: settings.all(), palettes: settings.PALETTES,
   payments: { gatewayReady: payments.gatewayReady(), gatewayMode: payments.gateway.mode, paypalMe: payments.paypalMeUrl() },
@@ -432,7 +430,7 @@ router.get('/clients/:id', requirePerm(), wrap(async (req, res) => {
     client,
     entitlements: ents.map((e) => ({ ...e, title: name(e.item_type === 'course' ? courses : books, e.item_id) })),
     orders: orderRows.map((o) => ({ ...o, items: (o.items || []).map((i) => i.title).join(' | ') })),
-    bookings: bookingRows.map((b) => ({ ...b, title: name(types, b.type_id) })),
+    bookings: bookingRows.map((b) => ({ ...b, title: b.title || name(types, b.type_id) })),
     conversations: convs.map((c) => ({ ...c, closed_by_name: name(people, c.closed_by), message_count: msgCounts.get(c.id) || 0 })),
     subscriptions: subs.map((s) => ({ ...s, plan_title: name(plans, s.plan_id), granted_by_name: name(people, s.granted_by) })),
     memberUntil: await shop.subEnd(id),
@@ -555,14 +553,14 @@ router.get('/bookings', requirePerm('bookings'), wrap(async (req, res) => {
   ]);
   const rows = list.map((b) => {
     const ty = types.get(b.type_id) || {}; const u = users.get(b.user_id) || {}; const o = orders.get(b.order_id) || {};
-    return { ...b, title: ty.title || '', duration_min: ty.duration_min, client_name: u.name || '—', client_email: u.email, client_phone: u.phone, order_status: o.status, total: o.total };
+    return { ...b, title: b.title || ty.title || '', duration_min: ty.duration_min, client_name: u.name || '—', client_email: u.email, client_phone: u.phone, order_status: o.status, total: o.total };
   }).sort((a, b) => ((b.status === 'paid') - (a.status === 'paid')) || ((b.scheduled_at || b.created_at) - (a.scheduled_at || a.created_at)));
   res.json(rows);
 }));
 router.put('/bookings/:id', requirePerm('bookings'), wrap(async (req, res) => {
   const b = await byId('bookings', req.params.id);
   if (!b) return fail(res, 404, req.t('Not found'));
-  b.title = ((await byId('consult_types', b.type_id)) || {}).title || '';
+  b.title = b.title || ((await byId('consult_types', b.type_id)) || {}).title || '';
   const sets = {};
   if (['pending_payment', 'paid', 'scheduled', 'done', 'cancelled'].includes(req.body.status)) sets.status = req.body.status;
   if ('scheduled_at' in req.body) sets.scheduled_at = Number(req.body.scheduled_at) || null;

@@ -49,9 +49,9 @@ Prices are in **US dollars** by default (Admin → Payments → Currency).
 PayPal setup: Admin → Payments → enter your **PayPal.me** link (e.g. `paypal.me/YourName`) and/or PayPal email. PayPal does not support EGP, so keep the currency in USD/EUR/GBP when using PayPal.
 
 ## Consultations
-- Every consultation type has **3 booking options**, each with its own price (Admin → Consultations): **Book for today**, **Within 2 days**, **Within 4 days**. Leave a price empty to hide that option.
+- There are no consultation types to create: the site always offers **3 options**, each with its own price, set in **Admin → Consultations**: **Book for today**, **Within 2 days**, **Within 4 days**. Leave a price empty to hide that option.
 - No calendar: the client picks the option, confirms their **WhatsApp number** (required) and pays. Staff see the option, the WhatsApp number (one click opens WhatsApp) and the "contact by" date in *Consultation bookings*; overdue ones are shown in red.
-- The consultations page highlights the **open session** (no time limit, no ending hour). Edit its title and text in *Site texts & images → Consultations - open session*.
+- The consultations page highlights the **open session** (no time limit, no ending hour). Edit its title and text on the same Admin → Consultations page.
 
 ## Chat labels
 In the Inbox, the label button in a chat's header lets any team member tick labels (e.g. VIP, Paid, Follow up), create new ones with a colour, rename or delete them. Labels show on every chat in the list and can be used as filters.

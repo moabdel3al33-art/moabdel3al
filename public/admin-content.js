@@ -174,7 +174,26 @@
   ADM.views.courses = contentView('courses');
   ADM.views.books = contentView('books');
   ADM.views.posts = contentView('posts');
-  ADM.views.consults = contentView('consults');
+  // Consultations: just the 3 options (no types to create) + the "open session" text.
+  ADM.views.consults = async (el) => {
+    const { values } = await api('/api/admin/settings');
+    ADM.setTitle(T('Consultations'), `<a class="btn ghost" href="/consultations" target="_blank">${ic('external', 'sm')} ${esc(T('View on website'))}</a>`);
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h3>${esc(T('Prices of the 3 options'))}</h3></div><div class="panel-body">
+        <p class="muted small" style="margin-top:0">${esc(T('Clients choose one option, leave their WhatsApp number and pay. There is no calendar. Leave a price empty to hide that option.'))}</p>
+        <div class="fgrid">
+          ${fieldHtml({ k: 'consult_price_today', l: 'Book for today', type: 'number', hint: 'We contact you today' }, values.consult_price_today)}
+          ${fieldHtml({ k: 'consult_price_2d', l: 'Book within 2 days', type: 'number', hint: 'We contact you within 2 days' }, values.consult_price_2d)}
+          ${fieldHtml({ k: 'consult_price_4d', l: 'Book within 4 days', type: 'number', hint: 'We contact you within 4 days' }, values.consult_price_4d)}
+        </div></div></div>
+      <div class="panel"><div class="panel-head"><h3>${esc(T('Open session (no time limit)'))}</h3></div><div class="panel-body"><div class="fgrid">
+        ${both('consult_open_title', 'Title').map((f) => fieldHtml(f, values[f.k])).join('')}
+        ${both('consult_open_text', 'Text', 'textarea').map((f) => fieldHtml(f, values[f.k])).join('')}
+      </div></div></div>
+      <div class="form-actions"><button class="btn" id="save">${esc(T('Save changes'))}</button><a class="btn ghost" href="#bookings">${ic('event', 'sm')} ${esc(T('Consultation bookings'))}</a><span class="err" id="err"></span></div>`;
+    el.querySelector('#save').onclick = async () => {
+      try { await put('/api/admin/settings', { values: collect(el) }); toast(T('Saved')); } catch (e) { el.querySelector('#err').textContent = e.message; }
+    };
+  };
   ADM.views.plans = contentView('plans');
 
   // ---------------------------------------------------------------------------
@@ -278,7 +297,6 @@
     ['Name & logo', [...both('site_name', 'Site name'), ...both('tagline', 'Slogan'), { k: 'img_logo', l: 'Logo (small square image)', type: 'image', aspects: ['1/1'], fit: 'contain' }]],
     ['Home page - top section', [...both('hero_title', 'Big title'), ...both('hero_text', 'Text under the title', 'textarea'), { k: 'img_hero', l: 'Main photo of Mohamed', type: 'image', aspects: ['4/5', '1/1'], hint: 'Large on computers (first frame), wider on phones (second frame).' }]],
     ['About section', [...both('about_title', 'Title'), ...both('about_text', 'Text', 'textarea'), { k: 'img_about', l: 'Photo', type: 'image', aspects: ['1/1'], round: true }]],
-    ['Consultations - open session', [...both('consult_open_title', 'Title'), ...both('consult_open_text', 'Text', 'textarea')]],
     ['Page background images', ['img_courses', 'img_books', 'img_blog', 'img_consult'].map((k, i) => ({ k, l: ['Courses page', 'Books page', 'Blog page', 'Consultations page'][i], type: 'image', aspects: ['16/5', '16/9'] }))],
     ['Social media accounts', [
       { k: 'social_facebook', l: 'Facebook page link', type: 'url' }, { k: 'social_tiktok', l: 'TikTok account link', type: 'url' },
