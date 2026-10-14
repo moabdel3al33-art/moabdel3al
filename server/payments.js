@@ -11,7 +11,7 @@ const path = require('path');
 const { byId, setOne } = require('./db');
 const settings = require('./settings');
 const config = require('./config');
-const { now, limited } = require('./util');
+const { now, limited, origin } = require('./util');
 const auth = require('./auth');
 const chat = require('./chat');
 
@@ -83,7 +83,7 @@ async function ppCall(method, url, body) {
   if (!res.ok) throw new Error(`PayPal: ${(data.details && data.details[0] && data.details[0].description) || data.message || res.status}`);
   return data;
 }
-async function gatewayStart(order, lang) {
+async function gatewayStart(order, lang, base = config.siteUrl) {
   const amount = Number(order.total).toFixed(2);
   const pp = await ppCall('POST', '/v2/checkout/orders', {
     intent: 'CAPTURE',
@@ -95,7 +95,7 @@ async function gatewayStart(order, lang) {
     payment_source: { paypal: { experience_context: {
       brand_name: String(settings.get(`site_name_${lang}`) || '').slice(0, 120), locale: lang === 'ar' ? 'ar-EG' : 'en-US',
       user_action: 'PAY_NOW', shipping_preference: 'NO_SHIPPING',
-      return_url: `${config.siteUrl}/pay/${order.id}/return`, cancel_url: `${config.siteUrl}/pay/${order.id}`,
+      return_url: `${base}/pay/${order.id}/return`, cancel_url: `${base}/pay/${order.id}`,
     } } },
   });
   await setOne('orders', { id: order.id }, { method: 'gateway', gateway_ref: pp.id });
@@ -164,7 +164,7 @@ router.post('/:id/proof', requireUser, wrap(async (req, res) => {
 router.post('/:id/gateway', requireUser, wrap(async (req, res) => {
   const order = await myPendingOrder(req, res); if (!order) return;
   if (!methodsFor(typeOf(order)).includes('gateway')) return fail(res, 400, req.t('This payment method is not available'));
-  try { res.json({ ok: true, redirect: await gatewayStart(order, req.lang) }); } catch (e) {
+  try { res.json({ ok: true, redirect: await gatewayStart(order, req.lang, origin(req)) }); } catch (e) {
     console.error('gateway', e.message);
     fail(res, 502, req.t('Online payment is not available right now. Please choose another method.'));
   }

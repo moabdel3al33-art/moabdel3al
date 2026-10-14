@@ -68,7 +68,10 @@ function embedUrl(url) {
   return /^https:\/\//.test(u) ? u : '';
 }
 
+// The address the visitor actually used (https://your-domain), so shared links never point to localhost.
+const origin = (req) => `${req.protocol}://${req.get('host')}`;
+
 const translators = { ar: make('ar'), en: make('en') };
 const tr = (lang) => translators[lang] || translators.ar;
 
-module.exports = { now, esc, normPhone, isEmail, slugify, hashPassword, verifyPassword, parseCookies, limited, money, embedUrl, tr, CURRENCY };
+module.exports = { origin, now, esc, normPhone, isEmail, slugify, hashPassword, verifyPassword, parseCookies, limited, money, embedUrl, tr, CURRENCY };

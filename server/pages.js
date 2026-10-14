@@ -11,6 +11,7 @@ const settings = require('./settings');
 const payments = require('./payments');
 const linkpage = require('./linkpage');
 const storage = require('./storage');
+const { origin } = require('./util');
 
 const router = express.Router();
 const ctxOf = (req) => ({ t: req.t, lang: req.lang, user: req.user, path: req.originalUrl, countryGuess: req.countryGuess });
@@ -178,7 +179,7 @@ router.get('/p/:slug', wrap(async (req, res) => {
   const d = await linkpage.bySlug(req.params.slug);
   if (!d) return notFound(req, res);
   res.set('X-Robots-Tag', 'noindex, nofollow').set('Cache-Control', 'no-store');
-  res.send(views.linkPage(ctxOf(req), d, new URL(`/p/${d.slug}`, config.siteUrl)));
+  res.send(views.linkPage(ctxOf(req), d, new URL(`/p/${d.slug}`, origin(req))));
 }));
 router.get('/chat', wrap(async (req, res) => {
   if (!req.user) return res.send(views.chatEntry(ctxOf(req), req.query));

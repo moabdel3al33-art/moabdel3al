@@ -9,12 +9,17 @@ if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 const env = process.env;
 const uploadDir = path.resolve(ROOT, env.UPLOAD_DIR || './data/uploads');
 
+// A SITE_URL left on localhost (copied from the local .env) is ignored on Railway: the real public address is used instead.
+const isLocal = (u) => /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(u || '');
+const siteUrl = env.SITE_URL && !(isLocal(env.SITE_URL) && env.RAILWAY_PUBLIC_DOMAIN) ? env.SITE_URL
+  : env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${Number(env.PORT) || 3000}`;
+
 const config = {
   root: ROOT,
   port: Number(env.PORT) || 3000,
   prod: env.NODE_ENV === 'production',
   // On Railway the public address is detected automatically (RAILWAY_PUBLIC_DOMAIN) unless SITE_URL is set.
-  siteUrl: (env.SITE_URL || (env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${Number(env.PORT) || 3000}`)).replace(/\/$/, ''),
+  siteUrl: siteUrl.replace(/\/$/, ''),
   defaultLang: env.DEFAULT_LANG === 'en' ? 'en' : 'ar',
   sessionDays: Number(env.SESSION_DAYS) || 30,
   secret: env.APP_SECRET || 'dev-secret',
