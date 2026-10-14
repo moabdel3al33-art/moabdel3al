@@ -8,7 +8,7 @@
   const ST = { pending: 'Waiting for payment', paid: 'Paid', cancelled: 'Cancelled', pending_payment: 'Waiting for payment', scheduled: 'Scheduled', done: 'Completed' };
   const KIND = { course: '🎓', book: '📚', consultation: '📅' };
   const pill = (s) => `<span class="pill ${esc(s)}">${esc(T(ST[s] || s))}</span>`;
-  const METHOD_PILL = (o) => (o.method ? `<span class="pill">${esc(T({ chat: 'Chat', paypal: 'PayPal', gateway: 'Online payment' }[o.method] || o.method))}</span>` : '');
+  const METHOD_PILL = (o) => (o.method ? `<span class="pill">${esc(T({ chat: 'Chat', paypal: 'PayPal', gateway: 'Online payment', lemon: 'Lemon Squeezy' }[o.method] || o.method))}</span>` : '');
   const chips = (list, cur) => `<div class="chips">${list.map(([k, l]) => `<button class="chip ${cur === k ? 'on' : ''}" data-f="${k}">${esc(T(l))}</button>`).join('')}</div>`;
 
   ADM.refreshBadges = async () => {

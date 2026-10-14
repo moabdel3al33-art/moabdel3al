@@ -217,9 +217,16 @@ router.post('/gdrive/disconnect', requirePerm('settings'), wrap(async (req, res)
 // ---------------------------------------------------------------------------
 const SETTINGS_PERM_KEYS = ['theme', 'currency', 'pay_course', 'pay_book', 'pay_plan', 'pay_consult', 'paypal_me', 'paypal_email', 'paypal_note_ar', 'paypal_note_en'];
 const NOT_EDITABLE = ['youtube_channel_id', 'linkpage', 'currency_usd_done', 'followers_fetched', 'consult_tiers_done'];
-router.get('/settings', requirePerm(), contentOrSettings, (req, res) => res.json({
-  values: settings.all(), palettes: settings.PALETTES,
-  payments: { gatewayReady: payments.gatewayReady(), gatewayMode: payments.gateway.mode, paypalMe: payments.paypalMeUrl() },
+router.get('/settings', requirePerm(), contentOrSettings, wrap(async (req, res) => {
+  const ls = payments.lemonReady() ? await payments.lemonCheck(true) : {};
+  res.json({
+    values: settings.all(), palettes: settings.PALETTES,
+    payments: {
+      gatewayReady: payments.gatewayReady(), gatewayMode: payments.gateway.mode, paypalMe: payments.paypalMeUrl(),
+      lemonReady: payments.lemonReady(), lemonStore: ls.name || '', lemonCurrency: ls.currency || '', lemonError: ls.error || '',
+      lemonWebhook: `${origin(req)}/webhooks/lemonsqueezy`,
+    },
+  });
 }));
 router.put('/settings', requirePerm(), contentOrSettings, wrap(async (req, res) => {
   const values = {};

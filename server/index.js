@@ -32,6 +32,11 @@ app.get('/uploads/:name', async (req, res, next) => {
   try { if (!(await storage.send(req, res, req.params.name))) res.status(404).end(); } catch (e) { next(e); }
 });
 
+// Lemon Squeezy calls this after a payment. It needs the raw body to check the signature, so it comes before express.json.
+app.post('/webhooks/lemonsqueezy', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => {
+  require('./payments').lemonWebhook(req, res, shop).catch(next);
+});
+
 app.use(express.json({ limit: '2mb' }));
 app.use(auth.attach);
 

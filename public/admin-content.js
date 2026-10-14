@@ -377,6 +377,7 @@
     ['chat', 'Chat with the team', 'The order is sent in the chat and your team replies with the payment details.'],
     ['paypal', 'PayPal + screenshot', 'The client pays with PayPal, then uploads a screenshot of the payment. You check it and press "Confirm payment".'],
     ['gateway', 'Online payment (automatic)', 'PayPal Checkout: card or PayPal account. The order is activated by itself right after paying.'],
+    ['lemon', 'Card payment (Lemon Squeezy)', 'Visa, Mastercard, Apple Pay and Google Pay on Lemon Squeezy\'s secure page. The order is activated by itself right after paying.'],
   ];
   ADM.views.payments = async (el) => {
     const { values, payments: ps } = await api('/api/admin/settings');
@@ -388,7 +389,24 @@
         <tbody>${PLACES.map(([k, l]) => `<tr><td><b>${esc(T(l))}</b></td>${PAY_METHODS.map(([m]) => `<td><label class="switch"><input type="checkbox" data-place="${k}" value="${m}" ${on(k, m) ? 'checked' : ''}></label></td>`).join('')}</tr>`).join('')}</tbody></table></div>
         <div class="panel-body"><ul class="pm-help">${PAY_METHODS.map(([m, l, h]) => `<li><b>${esc(T(l))}:</b> ${esc(T(h))}</li>`).join('')}</ul>
           ${!ppReady ? `<div class="note-warn">${esc(T('PayPal is not set up yet: add your PayPal.me link or PayPal email below. Until then it is not shown to clients.'))}</div>` : ''}
-          ${!ps.gatewayReady ? `<div class="note-warn">${esc(T('Online payment is not set up yet (see below). Until then it is not shown to clients.'))}</div>` : ''}</div></div>
+          ${!ps.gatewayReady ? `<div class="note-warn">${esc(T('Online payment is not set up yet (see below). Until then it is not shown to clients.'))}</div>` : ''}
+          ${!ps.lemonReady ? `<div class="note-warn">${esc(T('Lemon Squeezy is not set up yet (see below). Until then it is not shown to clients.'))}</div>` : ''}</div></div>
+
+      <div class="panel"><div class="panel-head"><h3>${ic('card')} ${esc(T('Card payment (Lemon Squeezy)'))}</h3>
+        <span class="pill ${ps.lemonReady && !ps.lemonError ? 'ok' : 'warn'}">${esc(!ps.lemonReady ? T('Not set up') : ps.lemonError ? T('Error') : `${T('Connected')}: ${ps.lemonStore} (${ps.lemonCurrency})`)}</span></div><div class="panel-body">
+        ${ps.lemonError ? `<div class="note-warn" dir="ltr">${esc(ps.lemonError)}</div>` : ''}
+        ${ps.lemonReady && ps.lemonCurrency && ps.lemonCurrency !== values.currency ? `<div class="note-warn">${esc(T('Your Lemon Squeezy store is in {a} but the site currency is {b}. Change one of them so they match, otherwise card payment is hidden.', { a: ps.lemonCurrency, b: values.currency }))}</div>` : ''}
+        <ol class="howto-list">
+          <li>${esc(T('Create an account on lemonsqueezy.com and finish the store setup (Settings > Store and Settings > Payouts).'))}</li>
+          <li>${esc(T('Products > New product: name it for example "Order", any price, type "Single payment", and publish it. Open it and copy the Variant ID (the number in the variant link / "Copy ID").'))}</li>
+          <li>${esc(T('Settings > Stores: copy the Store ID (the number next to the store name).'))}</li>
+          <li>${esc(T('Settings > API: create an API key and copy it (it is shown once).'))}</li>
+          <li>${esc(T('Settings > Webhooks > add (+): paste the address below as Callback URL, type a long random Signing secret, tick "order_created", then Save.'))}</li>
+          <li>${esc(T('On Railway > Variables add: LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, LEMONSQUEEZY_VARIANT_ID and LEMONSQUEEZY_WEBHOOK_SECRET (the same Signing secret). The server restarts by itself.'))}</li>
+          <li>${esc(T('Come back here: it shows "Connected". Then tick "Card payment (Lemon Squeezy)" above and save.'))}</li>
+        </ol>
+        <div class="copy-row"><b dir="ltr">${esc(ps.lemonWebhook)}</b><button type="button" class="btn small ghost" data-copy-text="${esc(ps.lemonWebhook)}">${esc(T('Copy'))}</button></div>
+        <p class="muted small">${esc(T('To test first without real money, turn on "Test mode" in Lemon Squeezy and use the test API key and a test webhook. Pay with the card 4242 4242 4242 4242.'))}</p></div></div>
 
       <div class="panel"><div class="panel-head"><h3>${ic('paypal')} PayPal</h3></div><div class="panel-body">
         <div class="fgrid">
@@ -427,6 +445,9 @@
         <div class="fld"><span class="lbl">&nbsp;</span><div class="hint">${esc(T('PayPal works with USD, EUR and GBP. Prices are not converted: update them in each course, book, plan and consultation.'))}</div></div></div></div></div>
 
       <div class="form-actions"><button class="btn" id="save">${esc(T('Save changes'))}</button><span class="err" id="err"></span></div>`;
+    el.querySelectorAll('[data-copy-text]').forEach((b) => {
+      b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copyText); toast(T('Copied')); } catch (e) { prompt('', b.dataset.copyText); } };
+    });
     el.querySelector('#save').onclick = async () => {
       const err = el.querySelector('#err');
       err.textContent = '';

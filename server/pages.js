@@ -202,6 +202,7 @@ router.get('/pay/:id', wrap(async (req, res) => {
   res.send(views.payPage(ctxOf(req), order, {
     methods: payments.methodsFor(payments.typeOf(order)), paypalLink: payments.paypalLink(order), paypalEmail: settings.get('paypal_email'),
     paypalNote: settings.get(`paypal_note_${req.lang}`) || settings.get(`paypal_note_${req.lang === 'ar' ? 'en' : 'ar'}`), error: !!req.query.err,
+    paid: !!req.query.paid && order.method === 'lemon',
   }));
 }));
 // PayPal sends the client back here after the online payment.

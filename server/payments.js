@@ -6,8 +6,11 @@
 //             successful payment. The team checks it and presses "Confirm payment".
 //   gateway - automatic online payment with PayPal Checkout (card or PayPal account). The order is
 //             activated by itself as soon as PayPal confirms it. Needs PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET.
+//   lemon   - automatic card payment with Lemon Squeezy (cards, Apple Pay, Google Pay, PayPal). The order is
+//             activated by the signed webhook Lemon Squeezy sends after paying. Needs the LEMONSQUEEZY_* variables.
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { byId, setOne } = require('./db');
 const settings = require('./settings');
 const config = require('./config');
@@ -15,7 +18,7 @@ const { now, limited, origin } = require('./util');
 const auth = require('./auth');
 const chat = require('./chat');
 
-const METHODS = ['chat', 'paypal', 'gateway'];
+const METHODS = ['chat', 'paypal', 'gateway', 'lemon'];
 // Settings key for each product type.
 const PLACE = { course: 'pay_course', book: 'pay_book', plan: 'pay_plan', consultation: 'pay_consult' };
 // Currencies PayPal accepts (EGP is not one of them).
@@ -48,7 +51,9 @@ const typeOf = (order) => ((order.items || [])[0] || {}).item_type || 'course';
 // Methods the admin chose for a product type, minus the ones that are not set up yet. Never empty.
 function methodsFor(type) {
   const chosen = String(settings.get(PLACE[type]) || 'chat').split(',').map((s) => s.trim()).filter((m) => METHODS.includes(m));
-  const ok = chosen.filter((m) => (m === 'paypal' ? paypalReady() : m === 'gateway' ? gatewayReady() && PAYPAL_CURRENCIES.has(settings.get('currency')) : true));
+  const ok = chosen.filter((m) => (m === 'paypal' ? paypalReady()
+    : m === 'gateway' ? gatewayReady() && PAYPAL_CURRENCIES.has(settings.get('currency'))
+      : m === 'lemon' ? lemonReady() && (!lemonStore.currency || lemonStore.currency === settings.get('currency')) : true));
   return ok.length ? ok : ['chat'];
 }
 // Where to send the client right after the order is created.
@@ -121,6 +126,110 @@ async function gatewayFinish(order, token, shop) {
 }
 
 // ---------------------------------------------------------------------------
+// Lemon Squeezy (automatic card payment)
+// One product with one variant in Lemon Squeezy is enough: every checkout is created here with the exact
+// order price (custom_price), and the order_created webhook activates the order.
+// ---------------------------------------------------------------------------
+const lemon = {
+  apiKey: (process.env.LEMONSQUEEZY_API_KEY || '').trim(),
+  storeId: String(process.env.LEMONSQUEEZY_STORE_ID || '').trim(),
+  variantId: String(process.env.LEMONSQUEEZY_VARIANT_ID || '').trim(),
+  webhookSecret: (process.env.LEMONSQUEEZY_WEBHOOK_SECRET || '').trim(),
+};
+const lemonReady = () => !!(lemon.apiKey && lemon.storeId && lemon.variantId && lemon.webhookSecret);
+// Store name and currency, read from Lemon Squeezy (prices are always charged in the store currency).
+const lemonStore = { name: '', currency: '', error: '', at: 0 };
+// Proves a webhook belongs to a checkout this server created (custom data can also be added to public buy links).
+const lemonToken = (orderId) => crypto.createHmac('sha256', config.secret).update(`lemon:${orderId}`).digest('hex').slice(0, 32);
+
+async function lsCall(method, url, body) {
+  const res = await fetch(`https://api.lemonsqueezy.com/v1${url}`, {
+    method,
+    headers: { Authorization: `Bearer ${lemon.apiKey}`, Accept: 'application/vnd.api+json', 'Content-Type': 'application/vnd.api+json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Lemon Squeezy: ${(data.errors && data.errors[0] && (data.errors[0].detail || data.errors[0].title)) || res.status}`);
+  return data;
+}
+async function lemonCheck(force) {
+  if (!lemonReady()) return lemonStore;
+  if (!force && lemonStore.at && now() - lemonStore.at < 600e3) return lemonStore;
+  try {
+    const s = await lsCall('GET', `/stores/${encodeURIComponent(lemon.storeId)}`);
+    Object.assign(lemonStore, { name: s.data.attributes.name, currency: String(s.data.attributes.currency || '').toUpperCase(), error: '' });
+  } catch (e) { lemonStore.error = e.message; }
+  lemonStore.at = now();
+  return lemonStore;
+}
+if (lemonReady()) lemonCheck().then((s) => { if (s.error) console.error('lemon', s.error); });
+
+async function lemonStart(order, user, lang, base = config.siteUrl) {
+  const store = await lemonCheck();
+  if (store.currency && store.currency !== order.currency) throw new Error(`Lemon Squeezy store is in ${store.currency}, the order is in ${order.currency}`);
+  const title = (order.items || []).map((i) => i.title).join(', ').slice(0, 250);
+  const ls = await lsCall('POST', '/checkouts', { data: {
+    type: 'checkouts',
+    attributes: {
+      custom_price: Math.round(Number(order.total) * 100),
+      product_options: {
+        name: title || `${settings.get(`site_name_${lang}`) || ''} #${order.id}`,
+        description: `#${order.id}`,
+        redirect_url: `${base}/pay/${order.id}?paid=1`,
+        enabled_variants: [Number(lemon.variantId)],
+      },
+      checkout_options: { embed: false },
+      checkout_data: {
+        email: user.email || undefined, name: user.name || undefined,
+        custom: { order_id: String(order.id), token: lemonToken(order.id) },
+      },
+      expires_at: new Date(now() + 24 * 3600e3).toISOString(),
+    },
+    relationships: {
+      store: { data: { type: 'stores', id: lemon.storeId } },
+      variant: { data: { type: 'variants', id: lemon.variantId } },
+    },
+  } });
+  await setOne('orders', { id: order.id }, { method: 'lemon', gateway_ref: ls.data.id });
+  return ls.data.attributes.url;
+}
+
+// POST /webhooks/lemonsqueezy (raw body, see index.js). Lemon Squeezy signs each call with the webhook secret.
+async function lemonWebhook(req, res, shop) {
+  const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
+  const want = crypto.createHmac('sha256', lemon.webhookSecret || 'unset').update(raw).digest();
+  const got = Buffer.from(String(req.get('X-Signature') || ''), 'hex');
+  if (!lemon.webhookSecret || got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ error: 'Bad signature' });
+  let ev;
+  try { ev = JSON.parse(raw.toString('utf8')); } catch (e) { return res.status(400).json({ error: 'Bad JSON' }); }
+  const name = (ev.meta || {}).event_name;
+  if (name !== 'order_created') return res.json({ ok: true, ignored: name });
+  const custom = (ev.meta || {}).custom_data || {};
+  const a = (ev.data || {}).attributes || {};
+  const orderId = Number(custom.order_id);
+  const order = orderId ? await byId('orders', orderId) : null;
+  // Answer 200 for orders that are not ours (other products in the same store), so Lemon Squeezy stops retrying.
+  if (!order || custom.token !== lemonToken(orderId)) {
+    console.error('lemon webhook: unknown order', custom.order_id, a.identifier);
+    return res.json({ ok: true, ignored: 'unknown order' });
+  }
+  const item = a.first_order_item || {};
+  const cents = Math.round(Number(order.total) * 100);
+  const amountOk = String(a.currency || '').toUpperCase() === order.currency ? Number(a.subtotal) >= cents - 1
+    : order.currency === 'USD' && Number(a.subtotal_usd) >= cents * 0.97; // paid in the buyer's local currency
+  await setOne('orders', { id: order.id }, {
+    method: 'lemon', gateway_capture: a.identifier || String((ev.data || {}).id || ''), payer_email: a.user_email || null, lemon_test: !!a.test_mode,
+  });
+  if (a.status !== 'paid' || String(item.variant_id) !== lemon.variantId || !amountOk) {
+    console.error('lemon webhook: not confirmed', order.id, a.status, item.variant_id, a.currency, a.subtotal);
+    return res.json({ ok: true, confirmed: false });
+  }
+  if (order.status === 'pending') await shop.confirmOrder(order.id, null);
+  else if (order.status !== 'paid') console.error(`lemon webhook: order ${order.id} was paid but is ${order.status}`);
+  res.json({ ok: true, confirmed: true });
+}
+
+// ---------------------------------------------------------------------------
 // Client API (/api/pay)
 // ---------------------------------------------------------------------------
 const router = express.Router();
@@ -170,4 +279,20 @@ router.post('/:id/gateway', requireUser, wrap(async (req, res) => {
   }
 }));
 
-module.exports = { router, METHODS, PLACE, methodsFor, nextUrl, typeOf, paypalLink, paypalMeUrl, gatewayReady, gatewayFinish, gateway };
+// Lemon Squeezy: create the checkout with the order price and send the client to it.
+router.post('/:id/lemon', requireUser, wrap(async (req, res) => {
+  const order = await myPendingOrder(req, res); if (!order) return;
+  if (!methodsFor(typeOf(order)).includes('lemon')) return fail(res, 400, req.t('This payment method is not available'));
+  try {
+    const full = await require('./shop').orderWithItems(order.id);
+    res.json({ ok: true, redirect: await lemonStart(full, req.user, req.lang, origin(req)) });
+  } catch (e) {
+    console.error('lemon', e.message);
+    fail(res, 502, req.t('Online payment is not available right now. Please choose another method.'));
+  }
+}));
+
+module.exports = {
+  router, METHODS, PLACE, methodsFor, nextUrl, typeOf, paypalLink, paypalMeUrl, gatewayReady, gatewayFinish, gateway,
+  lemonReady, lemonCheck, lemonWebhook,
+};

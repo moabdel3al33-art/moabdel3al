@@ -664,12 +664,13 @@ const METHOD_INFO = {
   chat: { ic: 'chat', title: 'Pay with our team in the chat', sub: 'We reply with the payment details and activate your order' },
   paypal: { ic: 'paypal', title: 'PayPal', sub: 'Pay with PayPal, then send us a screenshot of the payment' },
   gateway: { ic: 'card', title: 'Pay online now (card or PayPal)', sub: 'Your order is activated automatically right after paying' },
+  lemon: { ic: 'card', title: 'Pay by card (Visa, Mastercard, Apple Pay)', sub: 'Your order is activated automatically right after paying' },
 };
 // Short note under the order: the chat note when the chat is the only method, otherwise the list of methods.
 function payHint(ctx, type) {
   const { t } = ctx;
   if (onlyChat(type)) return `<div class="paynote">${icon('chat')}<p>${esc(S(ctx, 'payment_note'))}</p></div>`;
-  return `<div class="pay-methods-mini"><span class="muted small">${esc(t('Payment methods'))}:</span>${payments.methodsFor(type).map((m) => `<span class="pm-mini">${icon(METHOD_INFO[m].ic)} ${esc(t(m === 'gateway' ? 'Card' : m === 'paypal' ? 'PayPal' : 'Chat'))}</span>`).join('')}</div>`;
+  return `<div class="pay-methods-mini"><span class="muted small">${esc(t('Payment methods'))}:</span>${payments.methodsFor(type).map((m) => `<span class="pm-mini">${icon(METHOD_INFO[m].ic)} ${esc(t(m === 'gateway' || m === 'lemon' ? 'Card' : m === 'paypal' ? 'PayPal' : 'Chat'))}</span>`).join('')}</div>`;
 }
 const payButtonLabel = (ctx, type) => (onlyChat(type) ? `${icon('chat')} ${esc(ctx.t('Continue to payment in the chat'))}` : `${icon('lock')} ${esc(ctx.t('Continue to payment'))}`);
 
@@ -723,8 +724,13 @@ function payPage(ctx, order, d) {
       ${d.error ? `<div class="form-error">${esc(t('The payment was not completed. Please try again or choose another method.'))}</div>` : ''}
       <button class="btn primary block lg" data-pay="gateway" data-order="${order.id}">${icon('lock')} ${esc(t('Pay {amount} now', { amount: total }))}</button>
       <div class="gw-logos"><span>PayPal</span><span>Visa</span><span>Mastercard</span></div>`;
-    inner = `<h1>${esc(t('Complete your payment'))}</h1>${head}${proof}${choice}
-      ${panel('gateway', gwPanel)}${panel('paypal', ppPanel)}${panel('chat', chatPanel)}<div class="form-error" data-pay-err></div>`;
+    const lsPanel = `<div class="gw-box">${icon('lock')}<div><b>${esc(t('Secure online payment'))}</b><p class="muted small">${esc(t('You will go to a secure payment page to pay with a debit/credit card, Apple Pay or Google Pay. Your order is activated automatically right after the payment.'))}</p></div></div>
+      <button class="btn primary block lg" data-pay="lemon" data-order="${order.id}">${icon('lock')} ${esc(t('Pay {amount} now', { amount: total }))}</button>
+      <div class="gw-logos"><span>Visa</span><span>Mastercard</span><span>Apple Pay</span><span>Google Pay</span></div>`;
+    // Back from the card payment: the webhook usually arrives within seconds, the page reloads until it does.
+    const waiting = d.paid ? `<div class="paynote" data-pay-wait>${icon('clock')}<p>${esc(t('We received your payment and are activating your order. This page updates by itself in a few seconds.'))}</p></div>` : '';
+    inner = `<h1>${esc(t('Complete your payment'))}</h1>${waiting}${head}${proof}${choice}
+      ${panel('lemon', lsPanel)}${panel('gateway', gwPanel)}${panel('paypal', ppPanel)}${panel('chat', chatPanel)}<div class="form-error" data-pay-err></div>`;
   }
   const body = `<section class="wrap narrow sec"><div class="checkout pay">${inner}</div></section>`;
   return layout(ctx, { title: t('Complete your payment'), body });

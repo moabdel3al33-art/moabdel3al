@@ -121,6 +121,12 @@
       } catch (ex) { if (err) err.textContent = ex.message; else toast(ex.message); pay.disabled = false; }
     }
   });
+  // Back from the card payment: reload until the order is active (about one minute at most).
+  if (document.querySelector('[data-pay-wait]')) {
+    const u = new URL(location.href);
+    const n = Number(u.searchParams.get('paid')) || 1;
+    if (n < 20) { u.searchParams.set('paid', n + 1); setTimeout(() => location.replace(u), 3000); }
+  }
   const proofForm = document.querySelector('.proof-form');
   if (proofForm) {
     const file = proofForm.querySelector('input[type=file]');

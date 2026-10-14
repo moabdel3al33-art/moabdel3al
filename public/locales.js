@@ -1013,6 +1013,22 @@
     "Disconnect Google Drive?": "إلغاء ربط Google Drive؟",
     "New PDFs will be saved in the website database again. Books already in Drive will not open until you connect the same account again.": "ستُحفظ ملفات PDF الجديدة في قاعدة بيانات الموقع مرة أخرى. الكتب الموجودة في Drive لن تفتح حتى تربط نفس الحساب مرة أخرى.",
     "Could not upload to Google Drive. Please try again.": "تعذّر الرفع إلى Google Drive. حاول مرة أخرى.",
+    "Pay by card (Visa, Mastercard, Apple Pay)": "ادفع بالبطاقة (فيزا، ماستركارد، Apple Pay)",
+    "You will go to a secure payment page to pay with a debit/credit card, Apple Pay or Google Pay. Your order is activated automatically right after the payment.": "ستنتقل إلى صفحة دفع آمنة للدفع ببطاقة خصم/ائتمان أو Apple Pay أو Google Pay، ويتم تفعيل طلبك تلقائياً فور الدفع.",
+    "We received your payment and are activating your order. This page updates by itself in a few seconds.": "استلمنا دفعتك ونقوم بتفعيل طلبك الآن. ستتحدث هذه الصفحة تلقائياً خلال ثوانٍ.",
+    "Card payment (Lemon Squeezy)": "الدفع بالبطاقة (Lemon Squeezy)",
+    "Visa, Mastercard, Apple Pay and Google Pay on Lemon Squeezy's secure page. The order is activated by itself right after paying.": "فيزا وماستركارد و Apple Pay و Google Pay في صفحة Lemon Squeezy الآمنة، ويُفعَّل الطلب تلقائياً فور الدفع.",
+    "Lemon Squeezy is not set up yet (see below). Until then it is not shown to clients.": "لم يتم إعداد Lemon Squeezy بعد (انظر بالأسفل). حتى ذلك الحين لن يظهر للعملاء.",
+    "Error": "خطأ",
+    "Your Lemon Squeezy store is in {a} but the site currency is {b}. Change one of them so they match, otherwise card payment is hidden.": "متجر Lemon Squeezy بعملة {a} بينما عملة الموقع {b}. غيّر إحداهما لتتطابقا، وإلا سيتم إخفاء الدفع بالبطاقة.",
+    "Create an account on lemonsqueezy.com and finish the store setup (Settings > Store and Settings > Payouts).": "أنشئ حساباً على lemonsqueezy.com وأكمل إعداد المتجر (Settings > Store و Settings > Payouts).",
+    "Products > New product: name it for example \"Order\", any price, type \"Single payment\", and publish it. Open it and copy the Variant ID (the number in the variant link / \"Copy ID\").": "Products > New product: سمّه مثلاً \"Order\" بأي سعر ونوع \"Single payment\" وانشره. افتحه وانسخ Variant ID (الرقم في رابط الـ variant / \"Copy ID\").",
+    "Settings > Stores: copy the Store ID (the number next to the store name).": "Settings > Stores: انسخ Store ID (الرقم بجانب اسم المتجر).",
+    "Settings > API: create an API key and copy it (it is shown once).": "Settings > API: أنشئ مفتاح API وانسخه (يظهر مرة واحدة فقط).",
+    "Settings > Webhooks > add (+): paste the address below as Callback URL, type a long random Signing secret, tick \"order_created\", then Save.": "Settings > Webhooks > إضافة (+): الصق العنوان بالأسفل في Callback URL، واكتب كلمة سر طويلة عشوائية في Signing secret، وفعّل \"order_created\"، ثم احفظ.",
+    "On Railway > Variables add: LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, LEMONSQUEEZY_VARIANT_ID and LEMONSQUEEZY_WEBHOOK_SECRET (the same Signing secret). The server restarts by itself.": "في Railway > Variables أضف: LEMONSQUEEZY_API_KEY و LEMONSQUEEZY_STORE_ID و LEMONSQUEEZY_VARIANT_ID و LEMONSQUEEZY_WEBHOOK_SECRET (نفس Signing secret). سيُعاد تشغيل السيرفر تلقائياً.",
+    "Come back here: it shows \"Connected\". Then tick \"Card payment (Lemon Squeezy)\" above and save.": "ارجع هنا وستجد \"متصل\"، ثم فعّل \"الدفع بالبطاقة (Lemon Squeezy)\" بالأعلى واحفظ.",
+    "To test first without real money, turn on \"Test mode\" in Lemon Squeezy and use the test API key and a test webhook. Pay with the card 4242 4242 4242 4242.": "للتجربة أولاً بدون أموال حقيقية، فعّل \"Test mode\" في Lemon Squeezy واستخدم مفتاح API و webhook الخاصين بالتجربة، وادفع بالبطاقة 4242 4242 4242 4242.",
   };
 
   function make(lang) {

@@ -44,6 +44,7 @@ Prices are in **US dollars** by default (Admin → Payments → Currency).
      4. They upload the screenshot (plus an optional transaction ID) on the payment page.
      5. The screenshot appears in your **Inbox** and in **Orders & payments** marked *Screenshot received*. Check the money is in your PayPal, then press **Confirm payment**.
    - **Online payment (automatic)**: PayPal Checkout (card or PayPal account). The order is activated by itself after paying. Needs `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_MODE=live` (see `.env.example`). Until those are set it is hidden from clients.
+   - **Card payment (Lemon Squeezy)**: Visa, Mastercard, Apple Pay, Google Pay. The site creates a checkout with the exact order price; Lemon Squeezy calls `/webhooks/lemonsqueezy` after paying and the order is activated by itself. Needs `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_VARIANT_ID` and `LEMONSQUEEZY_WEBHOOK_SECRET`; the step-by-step setup is in **Admin → Payments**. The site currency must be the same as the Lemon Squeezy store currency.
 4. The client gets access immediately and is told in the chat. For consultations, staff then set the date and meeting link in *Consultation bookings*.
 
 PayPal setup: Admin → Payments → enter your **PayPal.me** link (e.g. `paypal.me/YourName`) and/or PayPal email. PayPal does not support EGP, so keep the currency in USD/EUR/GBP when using PayPal.
