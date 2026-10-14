@@ -20,6 +20,8 @@ const comments = require('./comments');
 const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+// Railway checks this address to know the site is up.
+app.get('/health', (req, res) => res.json({ ok: true }));
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e6 });
 

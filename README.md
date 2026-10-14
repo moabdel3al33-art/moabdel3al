@@ -96,6 +96,3 @@ _old-chat-app/   backup of the first chat-only version
 
 ## Before launch (security)
 Phone numbers are not verified, so anyone who knows a chat-only client's number can open that chat. Before launch, add a WhatsApp or SMS code to confirm the number (for example with Twilio).
-#   m o a b d e l 3 a l  
- #   m o a b d e l 3 a l  
- 

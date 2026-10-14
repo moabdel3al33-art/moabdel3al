@@ -166,7 +166,7 @@ async function sendCode(user, purpose, lang) {
   try { sent = await sendMail(user.email, `${title} - ${code}`, html); } catch (e) { console.error('Email error:', e.message); }
   if (!sent) {
     console.log(`\n  [verification code] ${user.email} (${purpose}): ${code}\n`);
-    if (!config.prod) return { devCode: code };
+    if (config.showCodes) return { devCode: code };
     if (config.mailEnabled) { const err = new Error(t('Could not send the email. Please try again later.')); err.status = 500; throw err; }
   }
   return {};
